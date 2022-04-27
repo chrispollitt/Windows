@@ -1,0 +1,61 @@
+cd /cygdrive/c/Chris/Utils/RunRem
+IFS="^M$IFS"
+-----------
+
+for h in $(<hosts.txt);do ping -n 1 $h;done|grep -iP 'sent|Pinging'
+===== PICS08-DT231.pics.local [192.168.200.100] with 32 bytes of data:
+    1, Lost = 0 (0% loss),
+===== PICS08-DT232.pics.local [192.168.200.183] with 32 bytes of data:
+    1, Lost = 0 (0% loss),
+===== PICS08-DT233.pics.local [192.168.200.219] with 32 bytes of data:
+    1, Lost = 0 (0% loss),
+===== PICS08-DT234.pics.local [192.168.200.156] with 32 bytes of data:
+    1, Lost = 0 (0% loss),
+===== PICS08-DT235.pics.local [192.168.200.112] with 32 bytes of data:
+    1, Lost = 0 (0% loss),
+===== PICS08-DT236.pics.local [192.168.200.142] with 32 bytes of data:
+    1, Lost = 0 (0% loss),
+===== PICS08-DT237.pics.local [192.168.200.109] with 32 bytes of data:
+    1, Lost = 0 (0% loss),
+===== PICS08-DT238.pics.local [192.168.200.162] with 32 bytes of data:
+    1, Lost = 0 (0% loss),
+===== PICS08-DT239.pics.local [192.168.200.177] with 32 bytes of data:
+    1, Lost = 0 (0% loss),
+===== PICS08-DT240A.pics.local [192.168.200.184] with 32 bytes of data:
+    1, Lost = 0 (0% loss),
+===== 192.168.200.146 with 32 bytes of data:
+    0, Lost = 1 (100% loss),
+===== 192.168.200.108 with 32 bytes of data:
+    1, Lost = 0 (0% loss),
+
+[1/12 problems]
+
+-----------
+
+(for h in $(<hosts.txt);do ./RunRemClient.exe $h whoami;done) |& grep -P 'error|client|==='
+======PICS08-DT231
+pics\client
+======PICS08-DT232
+error: The network path was not found.
+=====PICS08-DT233
+pics\client
+======PICS08-DT234
+pics\client
+======PICS08-DT235
+pics\client
+======PICS08-DT236
+pics\client
+======PICS08-DT237
+pics\client
+======PICS08-DT238
+pics\client
+======PICS08-DT239
+pics\client
+======PICS08-DT240A
+error: The network path was not found.
+======192.168.200.146
+error: The network path was not found.
+======192.168.200.108
+[hang]
+
+[4/12 problems]

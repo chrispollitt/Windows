@@ -1,0 +1,10 @@
+* better error handling
+
+===============================
+
+* fix install
+* fix jscript //
+* remove own/prefix from tasker.go
+* fix not working from windows (PATH empty?)
+* change from unix to windows line endings
+
