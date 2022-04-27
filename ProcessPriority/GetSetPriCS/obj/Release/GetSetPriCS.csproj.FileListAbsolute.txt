@@ -1,0 +1,1 @@
+C:\Users\Chris\src\Visual Studio\ProcessPriority\GetSetPriCS\obj\Release\GetSetPriCS.csprojResolveAssemblyReference.cache

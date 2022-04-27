@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.31101.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "CWP2", "CWP2\CWP2.vbproj", "{A29FD49F-EF0B-4E34-AF8D-7BCC7CFCFD7A}"
+EndProject
+Global
+	GlobalSection(TeamFoundationVersionControl) = preSolution
+		SccNumberOfProjects = 2
+		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
+		SccTeamFoundationServer = https://chrispollitt.visualstudio.com/defaultcollection
+		SccLocalPath0 = .
+		SccProjectUniqueName1 = CWP2\\CWP2.vbproj
+		SccProjectName1 = CWP2
+		SccLocalPath1 = CWP2
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A29FD49F-EF0B-4E34-AF8D-7BCC7CFCFD7A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A29FD49F-EF0B-4E34-AF8D-7BCC7CFCFD7A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A29FD49F-EF0B-4E34-AF8D-7BCC7CFCFD7A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A29FD49F-EF0B-4E34-AF8D-7BCC7CFCFD7A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

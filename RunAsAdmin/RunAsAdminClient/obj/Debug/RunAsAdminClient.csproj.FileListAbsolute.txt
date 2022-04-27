@@ -1,0 +1,14 @@
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\bin\RunAsAdminClient.exe.config
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\bin\RunAsAdminClient.exe
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\bin\RunAsAdminClient.pdb
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\RunAsAdminClient\obj\Debug\RunAsAdminClient.csprojResolveAssemblyReference.cache
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\RunAsAdminClient\obj\Debug\RunAsAdminClient.exe
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\RunAsAdminClient\obj\Debug\RunAsAdminClient.pdb
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\bin\RunAsAdminClient.exe.config
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\bin\RunAsAdminClient.exe
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\bin\RunAsAdminClient.pdb
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\RunAsAdminClient\obj\Debug\RunAsAdminClient.csprojAssemblyReference.cache
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\RunAsAdminClient\obj\Debug\RunAsAdminClient.csproj.CoreCompileInputs.cache
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\RunAsAdminClient\obj\Debug\RunAsAdminClient.csproj.CopyComplete
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\RunAsAdminClient\obj\Debug\RunAsAdminClient.exe
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\RunAsAdminClient\obj\Debug\RunAsAdminClient.pdb

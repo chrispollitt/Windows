@@ -1,0 +1,39 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Express 2012 for Windows Desktop
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RunAsAdminServer", "RunAsAdminServer\RunAsAdminServer.csproj", "{99686793-9856-4ABE-B27A-78A0B5B54731}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RunAsAdminClient", "RunAsAdminClient\RunAsAdminClient.csproj", "{8E767FD8-CEB0-44FA-B188-612CB5B48EE3}"
+EndProject
+Global
+	GlobalSection(TeamFoundationVersionControl) = preSolution
+		SccNumberOfProjects = 3
+		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
+		SccTeamFoundationServer = https://chrispollitt.visualstudio.com/defaultcollection
+		SccLocalPath0 = .
+		SccProjectUniqueName1 = RunAsAdminClient\\RunAsAdminClient.csproj
+		SccProjectName1 = RunAsAdminClient
+		SccLocalPath1 = RunAsAdminClient
+		SccProjectUniqueName2 = RunAsAdminServer\\RunAsAdminServer.csproj
+		SccProjectName2 = RunAsAdminServer
+		SccLocalPath2 = RunAsAdminServer
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{99686793-9856-4ABE-B27A-78A0B5B54731}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{99686793-9856-4ABE-B27A-78A0B5B54731}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{99686793-9856-4ABE-B27A-78A0B5B54731}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{99686793-9856-4ABE-B27A-78A0B5B54731}.Release|Any CPU.Build.0 = Release|Any CPU
+		{99686793-9856-4ABE-B27A-78A0B5B54731}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{8E767FD8-CEB0-44FA-B188-612CB5B48EE3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8E767FD8-CEB0-44FA-B188-612CB5B48EE3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8E767FD8-CEB0-44FA-B188-612CB5B48EE3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8E767FD8-CEB0-44FA-B188-612CB5B48EE3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

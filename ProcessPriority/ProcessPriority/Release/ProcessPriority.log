@@ -1,0 +1,8 @@
+﻿  stdafx.cpp
+  dllmain.cpp
+  ProcessPriority.cpp
+     Creating library C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\ProcessPriority\Release\ProcessPriority.lib and object C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\ProcessPriority\Release\ProcessPriority.exp
+  Generating code
+  All 19 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  ProcessPriority.vcxproj -> C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\ProcessPriority\Release\ProcessPriority.dll

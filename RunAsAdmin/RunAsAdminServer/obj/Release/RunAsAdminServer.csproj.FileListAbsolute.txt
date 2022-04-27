@@ -1,0 +1,17 @@
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\bin\RunAsAdminServer.exe.config
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\bin\RunAsAdminServer.exe
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\bin\RunAsAdminServer.pdb
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\RunAsAdminServer\obj\Release\RunAsAdminServer.csprojResolveAssemblyReference.cache
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\RunAsAdminServer\obj\Release\CWP_Utils.MessageTipForm.resources
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\RunAsAdminServer\obj\Release\RunAsAdminServer.csproj.GenerateResource.Cache
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\RunAsAdminServer\obj\Release\RunAsAdminServer.exe
+C:\Users\Chris\src\Visual Studio\RunAsAdmin\RunAsAdminServer\obj\Release\RunAsAdminServer.pdb
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\bin\RunAsAdminServer.exe.config
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\bin\RunAsAdminServer.exe
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\bin\RunAsAdminServer.pdb
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\RunAsAdminServer\obj\Release\CWP_Utils.MessageTipForm.resources
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\RunAsAdminServer\obj\Release\RunAsAdminServer.csproj.GenerateResource.cache
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\RunAsAdminServer\obj\Release\RunAsAdminServer.csproj.CoreCompileInputs.cache
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\RunAsAdminServer\obj\Release\RunAsAdminServer.csproj.CopyComplete
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\RunAsAdminServer\obj\Release\RunAsAdminServer.exe
+C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\RunAsAdmin\RunAsAdminServer\obj\Release\RunAsAdminServer.pdb

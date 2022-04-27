@@ -1,0 +1,12 @@
+PROJ             LANG   .NET  PLAT   SolDep   PrjDep
+                                                     
+GetSetPriCS      CS     4.5   x86    
+GetSetProcPri    C++    4.0   Win32  
+ProcessPriority  C++    4.0   Win32  
+ProPriMgd        C++    4.5   Win32  
+
+psub.pl -r  '4\.0'  '4.5' '*.filters'
+psub.pl -r 'v4\.0' 'v4.5' '*.config'
+
+./GetSetProcPri/GetSetProcPri.vcxproj
+  ProcessPriority -> ProPriMgd

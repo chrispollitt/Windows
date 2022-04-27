@@ -1,0 +1,6 @@
+﻿  stdafx.cpp
+  GetSetProcPri.cpp
+c:\users\chris\dropbox\chris\backup\src\visual studio\processpriority\getsetprocpri\getsetprocpri.cpp(37): warning C4477: 'fprintf' : format string '%s' requires an argument of type 'char *', but variadic argument 2 has type 'System::String ^const '
+c:\users\chris\dropbox\chris\backup\src\visual studio\processpriority\getsetprocpri\getsetprocpri.cpp(60): warning C4477: 'fprintf' : format string '%s' requires an argument of type 'char *', but variadic argument 2 has type 'System::String ^const '
+  .NETFramework,Version=v4.5.2.AssemblyAttributes.cpp
+  GetSetProcPri.vcxproj -> C:\Users\chris\Dropbox\Chris\BACKUP\src\Visual Studio\ProcessPriority\Release\GetSetProcPri.exe

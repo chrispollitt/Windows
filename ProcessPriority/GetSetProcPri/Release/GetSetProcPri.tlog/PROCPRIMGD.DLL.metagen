@@ -1,0 +1,25 @@
+ImageRuntimeVersion: v4.0.30319
+Assembly ProcPriMgd, Version=1.0.*, Culture=Invariant Language (Invariant Country): 
+	hash=SHA1, flags=PublicKey
+Assembly mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Assembly System.Xml, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089: 
+	hash=None, flags=None
+Class ProcPriMgd.PPExecpt: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+  :System.Exception
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    System.String what : Public
+Class ProcPriMgd.ProcPri: AutoLayout, AnsiClass, Class, Public, BeforeFieldInit
+    Void .ctor(): PrivateScope, Public, HideBySig, SpecialName, RTSpecialName
+  Fields:
+    UInt32 lowPriority IsConst : Public, Static, HasDefault
+    UInt32 normalPriority IsConst : Public, Static, HasDefault
+    UInt32 highPriority IsConst : Public, Static, HasDefault
+  Methods:
+    setPriority(UInt32, UInt32): PrivateScope, Public, Static, HideBySig
+    queryPriority(UInt32): PrivateScope, Public, Static, HideBySig

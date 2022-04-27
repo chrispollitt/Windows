@@ -1,0 +1,157 @@
+' ******************************************************
+' *  Draw a CWP! image like I did on the Apple ][ in 1985 *
+' ******************************************************
+
+Module CWPModule
+    Dim Height, Width, Ratio, CWPHeight, CWPWidth, CWPRatio, CWPTop, CWPLeft, Thickness, AvgRatio As Primitive
+
+    ' Main block
+    Sub Main()
+
+        ' Size Constants
+        Height = 750 '4*192
+        Width = System.Math.Floor(Height * (4 / 2)) '4*280
+        Ratio = Height / Width
+        CWPHeight = Microsoft.SmallBasic.Library.Math.Floor(Height * 0.35)
+        CWPWidth = Microsoft.SmallBasic.Library.Math.Floor(Width * 0.6)
+        CWPRatio = CWPHeight / CWPWidth
+        CWPTop = Microsoft.SmallBasic.Library.Math.Floor((Height - CWPHeight) / 2)
+        CWPLeft = Microsoft.SmallBasic.Library.Math.Floor((Width - CWPWidth) / 2)
+        Thickness = Microsoft.SmallBasic.Library.Math.Floor(CWPWidth * 0.07)
+        AvgRatio = (Ratio + CWPRatio) / 2
+
+        ' Handle Key press
+        AddHandler GraphicsWindow.KeyDown, AddressOf HandleKey
+
+        ' Prep window 
+        GraphicsWindow.BackgroundColor = "Black"
+        GraphicsWindow.Clear()
+        GraphicsWindow.Title = "CWP!"
+        GraphicsWindow.Height = Height
+        GraphicsWindow.Width = Width
+        GraphicsWindow.Show()
+        GraphicsWindow.PenWidth = 1
+        GraphicsWindow.PenColor = "White"
+        GraphicsWindow.BrushColor = "White"
+
+        ' Draw CWP!
+        DrawCWP()
+
+        ' Draw Box
+        DrawBox()
+    End Sub
+
+    ' Handle keypress
+    Sub HandleKey()
+        If GraphicsWindow.LastKey <> CType("Escape", Primitive) Then
+            Program.End()
+        End If
+    End Sub
+
+    ' Slow down drawing
+    Sub Sleep()
+        'Sound.PlayAndWait("c:\Users\Chris\src\SmallBasic\CWP.wav")
+        'Program.Delay(10)
+    End Sub
+
+    ' Draw CWP!
+    Sub DrawCWP()
+        Dim x, x1, x2, y1, y2, a As Primitive
+
+        ' Sleep for a bit
+        'Sound.PlayChimeAndWait()
+        'Program.Delay(200)
+
+        ' -----------------------C--------------------
+        ' The "C"
+        For x = CWPLeft + (Thickness * 3) To CWPLeft Step -1
+            x1 = x
+            x2 = x
+            ' Y  =                            Y_offset                                                                                         Radius                                                    X        X_offset
+            y1 = Microsoft.SmallBasic.Library.Math.Floor(CWPTop + Microsoft.SmallBasic.Library.Math.SquareRoot(Microsoft.SmallBasic.Library.Math.Power(Thickness * 3, 2) - Microsoft.SmallBasic.Library.Math.Power(x1 - CWPLeft, 2)))
+            y2 = Microsoft.SmallBasic.Library.Math.Floor(CWPTop + Thickness + Microsoft.SmallBasic.Library.Math.SquareRoot(Microsoft.SmallBasic.Library.Math.Power(Thickness * 3, 2) - Microsoft.SmallBasic.Library.Math.Power(x2 - CWPLeft, 2)))
+            Shapes.AddLine(x1, y1, x2, y2)
+            Sleep()
+        Next
+
+        ' -----------------------W--------------------
+        ' 1st arm of "W" (down)
+        x1 = CWPLeft + (Thickness * 4)
+        y1 = CWPTop
+        x2 = x1 + Thickness
+        y2 = y1
+        For a = 0 To CWPHeight
+            Shapes.AddLine(x1, y1 + a, x2, y2 + a)
+            Sleep()
+        Next
+
+        ' 2nd arm of "W" (diagonal up)
+        x1 = CWPLeft + (Thickness * 5)
+        y1 = CWPTop + CWPHeight
+        x2 = x1 - Microsoft.SmallBasic.Library.Math.Floor(Thickness * Ratio)
+        y2 = y1 - Microsoft.SmallBasic.Library.Math.Floor(Thickness * Ratio)
+        For a = 0 To Thickness
+            Shapes.AddLine(x1 + a, y1 - a, x2 + a, y2 - a)
+            Sleep()
+        Next
+
+        ' 3rd arm of "W" (middle bridge)
+        x1 = CWPLeft + (Thickness * 5) + Microsoft.SmallBasic.Library.Math.Floor((Thickness * AvgRatio) / 2)
+        y1 = CWPTop + CWPHeight - Microsoft.SmallBasic.Library.Math.Floor(Thickness)
+        x2 = x1
+        y2 = y1 - Microsoft.SmallBasic.Library.Math.Floor(Thickness * Ratio)
+        For a = 0 To Thickness + Microsoft.SmallBasic.Library.Math.Floor((Thickness * Ratio) / 2)
+            Shapes.AddLine(x1 + a, y1, x2 + a, y2)
+            Sleep()
+        Next
+
+        ' 4th arm of "W" (diagonal down)
+        x1 = CWPLeft + (Thickness * 6)
+        y1 = CWPTop + CWPHeight - Microsoft.SmallBasic.Library.Math.Floor(Thickness)
+        x2 = x1 + Microsoft.SmallBasic.Library.Math.Floor(Thickness * Ratio)
+        y2 = y1 - Microsoft.SmallBasic.Library.Math.Floor(Thickness * Ratio)
+        For a = 0 To Thickness
+            Shapes.AddLine(x1 + a, y1 + a, x2 + a, y2 + a)
+            Sleep()
+        Next
+
+        ' 5th arm of "W" (up)
+        x1 = CWPLeft + (Thickness * 7)
+        y1 = CWPTop
+        x2 = x1 + Thickness
+        y2 = y1
+        For a = CWPHeight To 0 Step -1
+            Shapes.AddLine(x1, y1 + a, x2, y2 + a)
+            Sleep()
+        Next
+
+        ' -----------------------P--------------------
+
+        ' -----------------------!--------------------
+        ' The "!"
+        x1 = CWPLeft + CWPWidth - Thickness
+        y1 = CWPTop
+        x2 = x1 + Thickness
+        y2 = y1
+        For a = 0 To CWPHeight
+            If (a < (CWPHeight * 0.8)) Or (a > (CWPHeight * 0.85)) Then
+                Shapes.AddLine(x1, y1 + a, x2, y2 + a)
+            End If
+            Sleep()
+        Next
+        '''''' vvvvvvvvvvvvvvvvvvv
+        For a = 0 To Thickness
+            Shapes.AddLine(x1 + a - 10, y1 + 10, x2 + a - 10 - Thickness, y2 + 80)
+        Next
+        For a = 0 To Thickness
+            Shapes.AddLine(x1 + a + 10, y1 + 20, x2 + a + 10 - Thickness, y2 + 100)
+        Next
+        '''' ^^^^^^^^^^^^^^^^^^^^
+    End Sub
+
+    ' Draw boxes
+    Sub DrawBox()
+    End Sub
+
+End Module
+
