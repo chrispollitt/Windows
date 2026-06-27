@@ -1,0 +1,251 @@
+import time
+import pyautogui
+import keyboard
+
+# Constants
+TOP_LEFT_X = 0
+TOP_LEFT_Y = 0
+TIME_THRESHOLD = 3
+
+def main():
+    mouse_in_top_left_corner_time = None
+
+    while True:
+        # Get the current mouse position
+        x, y = pyautogui.position()
+
+        # Check if the mouse is at the top-left corner
+        if x == TOP_LEFT_X and y == TOP_LEFT_Y:
+            if mouse_in_top_left_corner_time is None:
+                # Set the timestamp when the mouse entered the top-left corner
+                mouse_in_top_left_corner_time = time.time()
+            elif time.time() - mouse_in_top_left_corner_time >= TIME_THRESHOLD:
+                # Trigger the event
+                on_mouse_in_top_left_corner()
+                # Reset the timestamp
+                mouse_in_top_left_corner_time = None
+        else:
+            # Reset the timestamp
+            mouse_in_top_left_corner_time = None
+
+        # Check if a keyboard event has been triggered to stop the script
+        if keyboard.is_pressed('esc'):
+            break
+
+        # Sleep to prevent high CPU usage
+        time.sleep(0.1)
+
+def on_mouse_in_top_left_corner():
+    print("Mouse in top-left corner for 3 seconds!")
+
+if __name__ == "__main__":
+    main()
+    
+#################################
+
+import time
+import pyautogui
+import keyboard
+import threading
+
+TOP_LEFT_X = 0
+TOP_LEFT_Y = 0
+TIME_THRESHOLD = 5.0
+
+def on_mouse_in_top_left_corner():
+    print("Mouse in top-left corner!")
+
+def check_mouse_position(cond):
+    mouse_in_top_left_corner_time = None
+    while True:
+        # Get the current mouse position
+        x, y = pyautogui.position()
+
+        # Check if the mouse is at the top-left corner
+        if x == TOP_LEFT_X and y == TOP_LEFT_Y:
+            if mouse_in_top_left_corner_time is None:
+                # Set the timestamp when the mouse entered the top-left corner
+                mouse_in_top_left_corner_time = time.time()
+            elif time.time() - mouse_in_top_left_corner_time >= TIME_THRESHOLD:
+                # Trigger the event
+                on_mouse_in_top_left_corner()
+                # Reset the timestamp
+                mouse_in_top_left_corner_time = None
+        else:
+            # Reset the timestamp
+            mouse_in_top_left_corner_time = None
+        
+        # Notify the main thread that a mouse event has occurred
+        with cond:
+            cond.notify()
+
+        # Sleep to prevent high CPU usage
+        time.sleep(0.1)
+
+def main():
+    cond = threading.Condition()
+    thread = threading.Thread(target=check_mouse_position, args=(cond,))
+    thread.start()
+
+    while True:
+        # Wait for a mouse event to occur
+        with cond:
+            cond.wait()
+
+        # Check if a keyboard event has been triggered to stop the script
+        if keyboard.is_pressed('esc'):
+            break
+
+    # Join the thread to wait for it to finish
+    thread.join()
+    
+if __name__ == "__main__":
+    main()
+
+===================
+
+import time
+import pyautogui
+import keyboard
+import threading
+from pynput import mouse
+
+TOP_LEFT_X = 0
+TOP_LEFT_Y = 0
+TIME_THRESHOLD = 5.0
+mouse_in_top_left_corner_time = None
+
+def on_mouse_in_top_left_corner():
+    print("Mouse in top-left corner!")
+
+def on_move():
+    global mouse_in_top_left_corner_time
+    # Get the current mouse position
+    x, y = pyautogui.position()
+    if x == TOP_LEFT_X and y == TOP_LEFT_Y:
+        # Get the time when the mouse enters the top-left corner
+        if mouse_in_top_left_corner_time is None:
+            mouse_in_top_left_corner_time = time.time()
+        elif time.time() - mouse_in_top_left_corner_time >= TIME_THRESHOLD:
+            # Trigger the event
+            on_mouse_in_top_left_corner()
+            # Reset the timestamp
+            mouse_in_top_left_corner_time = None
+    else:
+        # Reset the timestamp
+        mouse_in_top_left_corner_time = None
+
+def main():
+    # Create a mouse listener
+    with mouse.Listener(on_move=on_move) as listener:
+        # Start the listener
+        listener.start()
+    
+        while True:
+            # Check if a keyboard event has been triggered to stop the script
+            if keyboard.is_pressed('esc'):
+                break
+    
+        # Stop the listener
+        listener.stop()
+        listener.join()
+
+if __name__ == "__main__":
+    main()
+
+=================
+
+#!/usr/bin/env python
+import time
+import pyautogui
+import keyboard
+import threading
+from pynput import mouse
+
+TOP_LEFT_X = 0
+TOP_LEFT_Y = 0
+TIME_THRESHOLD = 5.0
+mouse_in_top_left_corner_time = None
+
+def on_mouse_in_top_left_corner():
+    print("Mouse in top-left corner!")
+
+def on_move():
+    global mouse_in_top_left_corner_time
+    # Get the current mouse position
+    x, y = pyautogui.position()
+    if x == TOP_LEFT_X and y == TOP_LEFT_Y:
+        # Get the time when the mouse enters the top-left corner
+        if mouse_in_top_left_corner_time is None:
+            mouse_in_top_left_corner_time = time.monotonic()
+        elif time.monotonic() - mouse_in_top_left_corner_time >= TIME_THRESHOLD:
+            # Trigger the event
+            on_mouse_in_top_left_corner()
+            # Reset the timestamp
+            mouse_in_top_left_corner_time = None
+    else:
+        # Reset the timestamp
+        mouse_in_top_left_corner_time = None
+
+def main():
+    # Create a mouse listener
+    with mouse.Listener(on_move=on_move) as listener:
+        try:
+            # Start the listener
+            listener.join()
+        except KeyboardInterrupt:
+            # Stop the listener if the user presses Ctrl-C
+            listener.stop()
+
+if __name__ == "__main__":
+    main()
+
+============
+
+#!/usr/bin/env python
+import time
+import pyautogui
+import keyboard
+import threading
+from pynput import mouse
+
+MOUSE_CORNER_X = 0  
+MOUSE_CORNER_Y = 0
+TIME_THRESHOLD = 5.0  
+mouse_in_corner_time = None
+
+def on_mouse_in_corner() -> None:
+    """Print a message when the mouse enters the corner"""
+    print("Mouse in top-left corner!")
+
+def on_move() -> None: 
+    """Track if the mouse enters the corner and stays for TIME_THRESHOLD seconds"""
+    global mouse_in_corner_time
+    # Get the current mouse position
+    x, y = pyautogui.position()
+    if x == MOUSE_CORNER_X and y == MOUSE_CORNER_Y:
+        # Get the time when the mouse enters the corner
+        if mouse_in_corner_time is None:  
+            mouse_in_corner_time = time.monotonic()
+        elif time.monotonic() - mouse_in_corner_time >= TIME_THRESHOLD:
+            # Trigger the event
+            on_mouse_in_corner()  
+            # Reset the timestamp
+            mouse_in_corner_time = None
+    else:
+        # Reset the timestamp
+        mouse_in_corner_time = None
+
+def main() -> None: 
+    """Start the mouse listener"""
+    # Create a mouse listener
+    with mouse.Listener(on_move=on_move) as listener: 
+        try:
+            # Start the listener
+            listener.join()  
+        except KeyboardInterrupt:
+            # Stop the listener if the user presses Ctrl-C
+            listener.stop()  
+
+if __name__ == "__main__":
+    main()
