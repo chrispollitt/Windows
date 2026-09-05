@@ -5,9 +5,9 @@
 .DESCRIPTION
     OneDrive does not expose a real-time sync-status API, so this script infers
     health from: the OneDrive process, log-file activity, disk space, network
-    reachability, and the most common concrete blockers (locked/open Office
-    files, illegal filenames, over-length paths). It then offers graduated
-    remediation:
+    reachability, Windows Event Logs, configuration flags, and the most common 
+    concrete blockers (locked/open Office files, illegal filenames, over-length paths). 
+    It then offers graduated remediation:
 
         1. Graceful restart of OneDrive   (safe, clears most stuck queues)
         2. OneDrive /reset                 (aggressive, re-establishes sync;
@@ -74,7 +74,7 @@ function Write-Warn  { param($m) Write-Host "  [WARN] $m"   -ForegroundColor Yel
 function Write-Bad   { param($m) Write-Host "  [FAIL] $m"   -ForegroundColor Red }
 function Write-Info  { param($m) Write-Host "  [INFO] $m"   -ForegroundColor Gray }
 
-$findings = New-Object System.Collections.Generic.List[string]
+ $findings = New-Object System.Collections.Generic.List[string]
 function Add-Finding { param($m) $findings.Add($m) }
 
 # ---------------------------------------------------------------------------
@@ -141,8 +141,8 @@ Write-Host ""
 Write-Host "  OneDrive Personal Sync Doctor" -ForegroundColor White
 Write-Host "  Run: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor DarkGray
 
-$odPath = Get-OneDrivePersonalPath
-$odExe  = Get-OneDriveExe
+ $odPath = Get-OneDrivePersonalPath
+ $odExe  = Get-OneDriveExe
 
 if (-not $odPath) {
     Write-Bad "Could not locate your OneDrive Personal folder. Is OneDrive signed in?"
@@ -153,7 +153,7 @@ if (-not $odExe) {
 
 # ---------------------------------------------------------------------------
 Write-Section "1. Process & version"
-$proc = Get-Process OneDrive -ErrorAction SilentlyContinue
+ $proc = Get-Process OneDrive -ErrorAction SilentlyContinue
 if ($proc) {
     $startedAgo = (New-TimeSpan -Start $proc[0].StartTime -End (Get-Date))
     Write-OK ("OneDrive is running (PID {0}, up {1:%h}h {1:%m}m)." -f $proc[0].Id, $startedAgo)
@@ -166,6 +166,13 @@ if ($proc) {
 } else {
     Write-Warn "OneDrive process is NOT running."
     Add-Finding "OneDrive process not running -> launching it may resolve the stall."
+}
+
+# Check for ongoing OneDrive updates
+ $setupProc = Get-Process OneDriveSetup -ErrorAction SilentlyContinue
+if ($setupProc) {
+    Write-Warn "OneDriveSetup.exe is running — an update or install may be in progress."
+    Add-Finding "OneDrive update in progress -> wait for it to finish, or it may block sync actions."
 }
 
 # ---------------------------------------------------------------------------
@@ -202,7 +209,7 @@ if ($odPath) {
 
 # ---------------------------------------------------------------------------
 Write-Section "4. Recent sync-engine activity (log timestamps)"
-$logDir = Join-Path $env:LOCALAPPDATA 'Microsoft\OneDrive\logs'
+ $logDir = Join-Path $env:LOCALAPPDATA 'Microsoft\OneDrive\logs'
 if (Test-Path $logDir) {
     $recent = Get-ChildItem $logDir -Recurse -File -ErrorAction SilentlyContinue |
               Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -220,10 +227,76 @@ if (Test-Path $logDir) {
 } else { Write-Info "Log directory not present: $logDir" }
 
 # ---------------------------------------------------------------------------
-Write-Section "5. Blockers in the move destination"
+Write-Section "5. Windows Event Log (OneDrive errors/warnings)"
+try {
+    $onedriveEvents = Get-WinEvent -FilterHashtable @{
+        LogName      = 'Application'
+        ProviderName = 'OneDrive'
+        Level        = 2, 3  # Error, Warning
+        StartTime    = (Get-Date).AddDays(-2)
+    } -MaxEvents 5 -ErrorAction Stop
+
+    Write-Warn "Found recent OneDrive warning/error event(s) in the Application log:"
+    foreach ($ev in $onedriveEvents) {
+        $lvl = if ($ev.Level -eq 2) { "ERROR" } else { "WARN " }
+        $msg = $ev.Message -replace "`n", " "
+        if ($msg.Length -gt 150) { $msg = $msg.Substring(0, 150) + "..." }
+        Write-Host "         [$lvl] $(Get-Date $ev.TimeCreated -Format 'yyyy-MM-dd HH:mm:ss') - $msg" -ForegroundColor Yellow
+    }
+    Add-Finding "Recent OneDrive errors logged in Windows Event Log. Check Event Viewer for details."
+} catch {
+    # Error message for no events found is typically "No events were found that match the specified selection criteria."
+    if ($_.Exception.Message -match "No events were found") {
+        Write-OK "No recent OneDrive errors or warnings in the Application log."
+    } else {
+        Write-Warn "Could not query Event Log: $($_.Exception.Message)"
+    }
+}
+
+# ---------------------------------------------------------------------------
+Write-Section "6. Configuration & Known Folder Move"
+if (-not $odPath) {
+    Write-Info "OneDrive path not found, skipping configuration checks."
+} else {
+    $regBase = 'HKCU:\Software\Microsoft\OneDrive'
+    if (Test-Path $regBase) {
+        # Files On-Demand
+        $fod = (Get-ItemProperty -Path $regBase -Name 'FilesOnDemandEnabled' -ErrorAction SilentlyContinue).FilesOnDemandEnabled
+        if ($fod -eq 1) {
+            Write-OK "Files On-Demand is enabled (recommended)."
+        } else {
+            Write-Warn "Files On-Demand is disabled. This can cause sync issues if disk space is low or files are large."
+            Add-Finding "Enable Files On-Demand in OneDrive Settings to prevent disk-space related sync failures."
+        }
+
+        # Office file collaboration
+        $officeSync = (Get-ItemProperty -Path $regBase -Name 'EnableAllOcsiClients' -ErrorAction SilentlyContinue).EnableAllOcsiClients
+        if ($officeSync -eq 1) {
+            Write-Info "Office file collaboration is enabled. This can sometimes lock files if Office apps hang."
+        }
+    } else {
+        Write-Info "Could not read OneDrive registry settings."
+    }
+
+    # Known Folder Move (Backup)
+    $specialFolders = @(
+        @{Name='Desktop'; Path=[Environment]::GetFolderPath('Desktop')},
+        @{Name='Documents'; Path=[Environment]::GetFolderPath('MyDocuments')},
+        @{Name='Pictures'; Path=[Environment]::GetFolderPath('MyPictures')}
+    )
+    $activeKFM = $specialFolders | Where-Object { $_.Path -and $_.Path.StartsWith($odPath) }
+    if ($activeKFM) {
+        $kfmNames = ($activeKFM | ForEach-Object { $_.Name }) -join ', '
+        Write-Info "Known Folder Move (Backup) is active for: $kfmNames"
+        Write-Info "  (If the UI shows 'Moving files', it may be KFM trying to relocate these folders.)"
+    }
+}
+
+# ---------------------------------------------------------------------------
+Write-Section "7. Blockers in the move destination"
 # Always do a light check of the focus folder for the tell-tale Office lock
 # files (~$Name.xlsx), which appear when a workbook is open and will block a move.
-$scanRoot = $null
+ $scanRoot = $null
 if ($odPath) {
     if ($Path) {
         $candidate = if (Test-Path $Path) { (Resolve-Path $Path).Path } else { Join-Path $odPath $Path }
@@ -250,7 +323,7 @@ if ($scanRoot) {
 
 # ---------------------------------------------------------------------------
 if ($DeepScan -and $scanRoot) {
-    Write-Section "6. Deep scan: illegal names, long paths, locked files"
+    Write-Section "8. Deep scan: illegal names, long paths, locked files"
     Write-Info "Scanning $scanRoot (this can take a while; placeholders are not downloaded)..."
 
     $badNames = New-Object System.Collections.Generic.List[string]
@@ -345,30 +418,41 @@ function Reset-OneDriveClient { param([string]$Exe)
 if ($DiagnoseOnly) {
     Write-Section "Done (diagnose-only)"
     Write-Info "No changes made. Re-run without -DiagnoseOnly to apply a remedy."
-    return
-}
-
-Write-Section "Remediation"
-if ($Reset) {
-    $go = $true
-    if (-not $AutoFix) {
-        $ans = Read-Host "  Perform the aggressive OneDrive /reset now? (y/N)"
-        $go = ($ans -match '^(y|yes)$')
-    }
-    if ($go) { Reset-OneDriveClient -Exe $odExe } else { Write-Info "Skipped reset." }
 } else {
-    $go = $true
-    if (-not $AutoFix) {
-        $ans = Read-Host "  Gracefully restart OneDrive now? (Y/n)"
-        $go = -not ($ans -match '^(n|no)$')
-    }
-    if ($go) {
-        Restart-OneDriveClient -Exe $odExe
-        Write-Host ""
-        Write-Info "If the 'Moving files' banner returns and sticks again, re-run with -Reset."
+    Write-Section "Remediation"
+    if ($Reset) {
+        $go = $true
+        if (-not $AutoFix) {
+            $ans = Read-Host "  Perform the aggressive OneDrive /reset now? (y/N)"
+            $go = ($ans -match '^(y|yes)$')
+        }
+        if ($go) { Reset-OneDriveClient -Exe $odExe } else { Write-Info "Skipped reset." }
     } else {
-        Write-Info "Skipped restart."
+        $go = $true
+        if (-not $AutoFix) {
+            $ans = Read-Host "  Gracefully restart OneDrive now? (Y/n)"
+            $go = -not ($ans -match '^(n|no)$')
+        }
+        if ($go) {
+            Restart-OneDriveClient -Exe $odExe
+            Write-Host ""
+            Write-Info "If the 'Moving files' banner returns and sticks again, re-run with -Reset."
+        } else {
+            Write-Info "Skipped restart."
+        }
     }
+
+    Write-Section "Further steps (if the issue persists)"
+    Write-Host "  If restarting or resetting OneDrive does not resolve the issue:" -ForegroundColor White
+    Write-Host "   1. Unlink and Relink your PC:" -ForegroundColor Gray
+    Write-Host "      Right-click OneDrive icon > Settings > Account > Unlink this PC." -ForegroundColor DarkGray
+    Write-Host "      Sign back in and choose the same folder location." -ForegroundColor DarkGray
+    Write-Host "   2. Verify Files On-Demand is ON:" -ForegroundColor Gray
+    Write-Host "      Right-click OneDrive icon > Settings > Sync and backup > Advanced > Files On-Demand." -ForegroundColor DarkGray
+    Write-Host "   3. Repair Office:" -ForegroundColor Gray
+    Write-Host "      If Office files are constantly locking, run an Online Repair from Settings > Apps." -ForegroundColor DarkGray
+    Write-Host "   4. Check for Windows Updates:" -ForegroundColor Gray
+    Write-Host "      Ensure your OS is fully patched, as OS updates can resolve OneDrive shell issues." -ForegroundColor DarkGray
 }
 
 Write-Host ""
