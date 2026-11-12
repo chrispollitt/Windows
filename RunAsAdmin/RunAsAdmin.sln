@@ -6,18 +6,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RunAsAdminClient", "RunAsAdminClient\RunAsAdminClient.csproj", "{8E767FD8-CEB0-44FA-B188-612CB5B48EE3}"
 EndProject
 Global
-	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 3
-		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
-		SccTeamFoundationServer = https://chrispollitt.visualstudio.com/defaultcollection
-		SccLocalPath0 = .
-		SccProjectUniqueName1 = RunAsAdminClient\\RunAsAdminClient.csproj
-		SccProjectName1 = RunAsAdminClient
-		SccLocalPath1 = RunAsAdminClient
-		SccProjectUniqueName2 = RunAsAdminServer\\RunAsAdminServer.csproj
-		SccProjectName2 = RunAsAdminServer
-		SccLocalPath2 = RunAsAdminServer
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU

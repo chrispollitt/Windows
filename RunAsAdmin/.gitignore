@@ -1,0 +1,8 @@
+# build output and Visual Studio state
+bin/
+obj/
+.vs/
+*.suo
+*.user
+*.pdb
+*.vshost.*
