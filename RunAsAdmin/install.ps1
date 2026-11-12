@@ -6,6 +6,8 @@
 # scheduled task and its process, copies the new files, starts the task again and checks that the server is running and its pipe
 # exists.  If that check fails it puts the backups back and starts the old server.  Running programs that the server has already
 # started are not touched.
+# If the server was NOT running when you started (nobody logged on, say), the files are only copied: the task starts the new
+# server at the next logon, and nothing is started or checked now.
 param([string]$InstallDir = 'C:\dos')
 
 $ErrorActionPreference = 'Stop'
@@ -47,7 +49,8 @@ function Test-Server {
     return ($p -and $pipe)
 }
 
-Stop-Server
+$wasRunning = [bool](Get-Process RunAsAdminServer -ErrorAction SilentlyContinue)
+if ($wasRunning) { Stop-Server }
 try {
     foreach ($f in $files + @('RunAsAdminServer.exe.config', 'RunAsAdminClient.exe.config')) {
         $src = Join-Path $bin $f
@@ -57,9 +60,13 @@ try {
         $src = Join-Path $here "lib\$f"
         if ((Test-Path $src) -and -not (Test-Path (Join-Path $InstallDir $f))) { Copy-Item $src (Join-Path $InstallDir $f) }
     }
-    Start-ScheduledTask -TaskPath '\UserCreated\' -TaskName 'Elevate Service'
-    if (-not (Test-Server)) { throw 'the new server did not come up' }
-    Write-Host 'installed; the server is running and its pipe exists'
+    if ($wasRunning) {
+        Start-ScheduledTask -TaskPath '\UserCreated\' -TaskName 'Elevate Service'
+        if (-not (Test-Server)) { throw 'the new server did not come up' }
+        Write-Host 'installed; the server is running and its pipe exists'
+    } else {
+        Write-Host 'installed; the server was not running, so it was not started: the scheduled task starts it at the next logon'
+    }
 }
 catch {
     Write-Host "FAILED: $_ - putting the old files back"

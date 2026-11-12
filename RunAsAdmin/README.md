@@ -43,7 +43,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File install.ps1 [-InstallDir C:\
 
 It backs up what is installed to `<InstallDir>\BAK` (3 newest copies of each file kept), stops the scheduled task and the
 server, copies the new files, starts the task again and checks the server is running and its pipe exists. If the check fails it
-puts the old files back and starts the old server. Programs the server has already started are not touched.
+puts the old files back and starts the old server. Programs the server has already started are not touched. If the server
+was not running when you started (nobody logged on, say), it only copies the files; the task starts the new server at the
+next logon.
 
 The first run on a machine: run the client once from an **elevated** prompt; it creates the scheduled task
 (`PingServer`). After that the task starts the server at every logon. To remove it: end and delete the task, delete the files.
