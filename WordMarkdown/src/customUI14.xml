@@ -1,0 +1,30 @@
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="Ribbon_OnLoad">
+  <ribbon>
+    <tabs>
+      <tab id="tabWordMarkdown" label="Markdown" insertAfterMso="TabHome">
+        <group id="grpWmdFile" label="Markdown file">
+          <button id="btnWmdOpen" label="Open Markdown..." size="large"
+                  imageMso="FileOpen" onAction="Ribbon_Open"
+                  screentip="Open a Markdown file"
+                  supertip="Converts the .md file with Pandoc and opens it in Word. Save then writes Markdown back." />
+          <button id="btnWmdSave" label="Save" size="large"
+                  imageMso="FileSave" onAction="Ribbon_Save"
+                  screentip="Save as Markdown"
+                  supertip="Writes the document back to its .md file (the previous version is kept in a BAK folder)." />
+          <button id="btnWmdSaveAs" label="Save As Markdown..." size="normal"
+                  imageMso="FileSaveAs" onAction="Ribbon_SaveAs" />
+          <button id="btnWmdExport" label="Export Copy as Markdown..." size="normal"
+                  imageMso="FileSaveAsOtherFormats" onAction="Ribbon_Export"
+                  supertip="Writes a Markdown copy of any document without changing how the document itself is saved." />
+        </group>
+        <group id="grpWmdTools" label="Tools">
+          <button id="btnWmdSaveWord" label="Save as Word (.docx)..." size="normal"
+                  imageMso="FileSaveAsWordDocx" onAction="Ribbon_SaveWord"
+                  supertip="Detaches the document from its Markdown file and saves it as a normal Word document." />
+          <button id="btnWmdSettings" label="Settings..." size="normal"
+                  imageMso="AdvancedFileProperties" onAction="Ribbon_Settings" />
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>

@@ -1,0 +1,5 @@
+# VBA import needs CRLF; keep it whatever the checkout settings are
+*.bas text eol=crlf
+*.cls text eol=crlf
+*.sh text eol=lf
+*.lua text eol=lf
