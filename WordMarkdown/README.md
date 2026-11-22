@@ -19,7 +19,7 @@ While a document is tied to an `.md`, **Ctrl+S and File > Save As write Markdown
 
 1. Install Pandoc (found automatically on PATH, `%LOCALAPPDATA%\Pandoc`, or `Program Files\Pandoc`).
 2. Close all Word windows.
-3. Run `/home/chris/src/Claude/TO_BE_RUN/install-wordmarkdown.sh --vbom`.
+3. Run `/home/chris/src/Claude/TO_BE_RUN/REUSABLE/install-wordmarkdown.sh --vbom`.
    `--vbom` turns on Word's "Trust access to the VBA project object model" just for the build and puts it back afterwards. Or tick that box yourself and run without the flag.
 4. Start Word and look for the Markdown tab.
 
