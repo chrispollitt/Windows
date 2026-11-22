@@ -194,6 +194,38 @@ try {
     $zip.Dispose()
 }
 
+# --- prove the finished template loads and runs before installing it ---------------
+# A template that fails to compile (Word shows "Compile error in hidden module")
+# would break Word's start-up.  Open the finished file in a clean Word (/a: no
+# STARTUP templates, so the old installed copy cannot answer instead) and run
+# the self-test.  Nothing is installed if this fails.
+function Test-BuiltTemplate([string]$dotm) {
+    $p = Start-Process -FilePath 'winword.exe' -ArgumentList '/a' -PassThru
+    $w = $null
+    for ($i = 0; $i -lt 40 -and -not $w; $i++) {
+        Start-Sleep -Milliseconds 700
+        try { $w = [System.Runtime.InteropServices.Marshal]::GetActiveObject('Word.Application') } catch {}
+    }
+    if (-not $w) { try { $p.Kill() } catch {}; return 'could not start Word to test the template' }
+    $msg = $null
+    try {
+        $d = $w.Documents.Open($dotm, $false, $true)       # read-only
+        $r = [string]$w.Run('MarkdownIO.SelfTest')
+        if ($r -notlike 'OK*') { $msg = "self-test returned: $r" }
+        $d.Close(0)
+    } catch { $msg = $_.Exception.Message.Trim() }
+    try { $w.Quit(0) } catch {}
+    [GC]::Collect(); [GC]::WaitForPendingFinalizers()
+    if (-not $p.WaitForExit(8000)) { try { $p.Kill() } catch {} }
+    return $msg
+}
+$testErr = Test-BuiltTemplate $built
+if ($testErr) {
+    throw ("The built template does not run, so it was NOT installed (your installed copy is unchanged): $testErr" +
+           [Environment]::NewLine + "Built file kept at $built; run the installer again.")
+}
+Write-Host 'The built template loads and passes its self-test.'
+
 # --- install -------------------------------------------------------------------
 New-Item -ItemType Directory -Force -Path $StartupDir, $SupportDir, (Join-Path $SupportDir 'filters') | Out-Null
 
