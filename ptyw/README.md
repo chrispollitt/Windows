@@ -32,7 +32,7 @@ is an error. Options aren't parsed in this mode; use the environment instead:
 
 ## Install
 
-    make install              # per-user: %LOCALAPPDATA%MicrosoftWindowsApps (on PATH, no admin);
+    make install              # per-user: %LOCALAPPDATA%\Microsoft\WindowsApps (on PATH, no admin);
                               # from an elevated shell it asks whether to install system-wide (%WINDIR%)
     make install DEST=/cygdrive/c/Windows            # explicit folder: no questions asked
     make install PROGS="bash cmd php"                # choose aliases
