@@ -23,9 +23,13 @@
   Every change is recorded (before/after) in BAK\ptyw-update-<stamp>.json next to this
   script; -Undo <file> puts everything back.  The newest 4 such files are kept.
 
-.PARAMETER PtywPath      ptyw.exe to use (default: %LOCALAPPDATA%\Microsoft\WindowsApps\ptyw.exe, else PATH).
-                         Tasks that run as SYSTEM / another user need a system-wide copy
-                         (make install DEST=/cygdrive/c/Windows), since they can't see your profile.
+.PARAMETER PtywPath      ptyw.exe to use.  Default: the *installed* one -- %WINDIR%\ptyw.exe, else
+                         %LOCALAPPDATA%\Microsoft\WindowsApps\ptyw.exe, else on PATH -- never the copy
+                         beside this script.  Tasks that run as SYSTEM / another user need a system-wide
+                         copy (make install, answer y when elevated), since they can't see your profile.
+                         The installed <prog>w.exe aliases are used when they exist and running <prog>
+                         by name would find the very same program (bash.exe -> bashw.exe); otherwise
+                         the entry is rewritten as   ptyw.exe "full\path\prog.exe" args .
 .PARAMETER List          Only list what would be offered; change nothing.
 .PARAMETER DryRun        Walk through everything, but don't apply (no prompts).
 .PARAMETER Associations  Also handle entries that launch a *document* by file association, e.g. a task, Run
@@ -121,6 +125,39 @@ function Test-IsWrapper([string]$Path) {
         if ((Get-Item -LiteralPath $Path).Length -ne (Get-Item -LiteralPath $script:Ptyw).Length) { return $false }
         return ((Get-FileHash -LiteralPath $Path).Hash -eq (Get-FileHash -LiteralPath $script:Ptyw).Hash)
     } catch { return $false }
+}
+
+# Where CreateProcess would find "<name>" when started by a program living in $AppDir
+# (app dir, System32, System, Windows, then PATH); the user's cwd is deliberately not searched.
+function Find-OnSearchPath([string]$FileName, [string]$AppDir) {
+    $dirs = @($AppDir, [Environment]::SystemDirectory, (Join-Path $env:WINDIR 'System'), $env:WINDIR) +
+            @($env:PATH -split ';')
+    foreach ($d in $dirs) {
+        if (-not $d) { continue }
+        $p = Join-Path $d $FileName
+        if (Test-Path -LiteralPath $p -PathType Leaf) { return (Resolve-Path -LiteralPath $p).ProviderPath }
+    }
+    return $null
+}
+
+# How to run console program $Tg (@{Exe; Arguments}) through the wrapper -> @{ Exe; Arguments; Note }.
+# Preferred: the installed alias next to ptyw.exe (bash.exe -> bashw.exe), but ONLY when running
+# "bash" by name would really find this same bash.exe -- otherwise (e.g. Cygwin bash vs the WSL
+# C:\Windows\System32\bash.exe) fall back to  ptyw.exe "<full path>" args  and say why.
+function Get-WrapForm($Tg) {
+    $generic = @{ Exe = $script:Ptyw; Arguments = (Join-Args $Tg.Exe $Tg.Arguments); Note = $null }
+    if ([IO.Path]::GetExtension($Tg.Exe).ToLower() -ne '.exe') { return $generic }      # .bat/.cmd: no alias
+    $name  = [IO.Path]::GetFileNameWithoutExtension($Tg.Exe)
+    $dir   = Split-Path -Parent $script:Ptyw
+    $alias = Join-Path $dir "${name}w.exe"
+    # must really be a copy/link of ptyw (pyw.exe, for instance, is the Python launcher)
+    if (-not (Test-Path -LiteralPath $alias -PathType Leaf) -or -not (Test-IsWrapper $alias)) { return $generic }
+    $hit = Find-OnSearchPath "$name.exe" $dir
+    if ($hit -and ([IO.Path]::GetFullPath($hit) -ieq [IO.Path]::GetFullPath($Tg.Exe))) {
+        return @{ Exe = $alias; Arguments = [string]$Tg.Arguments; Note = $null }
+    }
+    $generic.Note = "alias $(Split-Path -Leaf $alias) not used: '$name' would resolve to $(if ($hit) { $hit } else { 'nothing' }), not $($Tg.Exe)"
+    return $generic
 }
 
 # "C:\Program Files\x\app.exe" /s   or   C:\Program Files\x\app.exe /s   -> exe + arguments
@@ -279,7 +316,8 @@ function New-Candidate($Kind, $Label, $Info, $BeforeText, $AfterText, $Before, $
     }
     [pscustomobject]@{ Kind = $Kind; Label = $Label; Info = $Info; BeforeText = $BeforeText
                        AfterText = $AfterText; Before = $Before; After = $After; Skip = $Skip
-                       Alt = $alt; AltText = $altText.Trim(); AltNote = $altNote }
+                       Alt = $alt; AltText = $altText.Trim(); AltNote = $altNote
+                       WrapNote = $(if ($Tg) { $Tg.WrapNote } else { $null }) }
 }
 
 function Get-TaskCandidates {
@@ -300,8 +338,9 @@ function Get-TaskCandidates {
             if (-not $tg -or (Test-IsWrapper $tg.Exe) -or -not (Test-ConsoleProgram $tg.Exe)) { continue }
             $before = @{ TaskPath = $t.TaskPath; TaskName = $t.TaskName; Index = $i; Execute = $a.Execute
                          Arguments = [string]$a.Arguments; WorkingDirectory = [string]$a.WorkingDirectory }
-            $after = @{ TaskPath = $t.TaskPath; TaskName = $t.TaskName; Index = $i; Execute = $script:Ptyw
-                        Arguments = (Join-Args $tg.Exe $tg.Arguments); WorkingDirectory = [string]$a.WorkingDirectory }
+            $w = Get-WrapForm $tg; $tg.WrapNote = $w.Note
+            $after = @{ TaskPath = $t.TaskPath; TaskName = $t.TaskName; Index = $i; Execute = $w.Exe
+                        Arguments = $w.Arguments; WorkingDirectory = [string]$a.WorkingDirectory }
             $infoA = if ($tg.Via) { "$info; via $($tg.Via)" } else { $info }
             $skip = $null
             if ([string]$t.Principal.LogonType -eq 'Password') {
@@ -333,7 +372,8 @@ function Get-RunCandidates {
                 if (-not $file) { continue }
                 $tg = Get-LaunchTarget $file $sp.Arguments
                 if (-not $tg -or (Test-IsWrapper $tg.Exe) -or -not (Test-ConsoleProgram $tg.Exe)) { continue }
-                $newVal = (Join-Args $script:Ptyw (Join-Args $tg.Exe $tg.Arguments))
+                $w = Get-WrapForm $tg; $tg.WrapNote = $w.Note
+                $newVal = (Join-Args $w.Exe $w.Arguments)
                 $before = @{ Hive = $loc.Hive; Sub = $loc.Sub; Name = $n; Value = $raw; Kind = $kind }
                 $after  = @{ Hive = $loc.Hive; Sub = $loc.Sub; Name = $n; Value = $newVal; Kind = $kind }
                 $skip = $null
@@ -351,15 +391,16 @@ function Get-ShortcutCandidates {
         if (-not $f.Path -or -not (Test-Path -LiteralPath $f.Path)) { continue }
         foreach ($file in Get-ChildItem -LiteralPath $f.Path -Filter *.lnk -File) {
             $l = $sh.CreateShortcut($file.FullName)
-            $file = Resolve-Exe $l.TargetPath $l.WorkingDirectory
-            if (-not $file) { continue }
-            $tg = Get-LaunchTarget $file ([string]$l.Arguments)
+            $target = Resolve-Exe $l.TargetPath $l.WorkingDirectory
+            if (-not $target) { continue }
+            $tg = Get-LaunchTarget $target ([string]$l.Arguments)
             if (-not $tg -or (Test-IsWrapper $tg.Exe) -or -not (Test-ConsoleProgram $tg.Exe)) { continue }
             $icon = [string]$l.IconLocation
             $newIcon = if (-not $icon -or $icon.StartsWith(',')) { "$($tg.Exe),0" } else { $icon }   # keep an icon
             $before = @{ Link = $file.FullName; Target = $l.TargetPath; Arguments = [string]$l.Arguments
                          WorkingDirectory = [string]$l.WorkingDirectory; IconLocation = $icon }
-            $after  = @{ Link = $file.FullName; Target = $script:Ptyw; Arguments = (Join-Args $tg.Exe $tg.Arguments)
+            $w = Get-WrapForm $tg; $tg.WrapNote = $w.Note
+            $after  = @{ Link = $file.FullName; Target = $w.Exe; Arguments = $w.Arguments
                          WorkingDirectory = [string]$l.WorkingDirectory; IconLocation = $newIcon }
             $skip = $null
             if ($f.Admin -and -not $admin) { $skip = 'needs an elevated shell' }
@@ -403,19 +444,27 @@ function Invoke-Undo([string]$File) {
 
 # ---------------------------------------------------------------- main
 
+# The *installed* wrapper, never the copy sitting next to this script (the repo build):
+# -PtywPath, else %WINDIR% (system-wide, usable by every task principal), else the per-user
+# WindowsApps folder, else any PATH entry other than this script's folder or the cwd.
+function Find-InstalledPtyw {
+    if ($PtywPath) { return $(if (Test-Path -LiteralPath $PtywPath -PathType Leaf) { $PtywPath } else { $null }) }
+    $skip = @($PSScriptRoot, (Get-Location).ProviderPath, '.', '') | ForEach-Object { $_.TrimEnd('\').ToLower() }
+    $dirs = @($env:WINDIR, (Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps')) + @($env:PATH -split ';')
+    foreach ($d in $dirs) {
+        if (-not $d -or $skip -contains $d.TrimEnd('\').ToLower()) { continue }
+        $c = Join-Path $d 'ptyw.exe'
+        if (Test-Path -LiteralPath $c -PathType Leaf) { return $c }
+    }
+    return $null
+}
+
 function Invoke-Main {
     if ($Undo) { Invoke-Undo $Undo; return }
 
-    if ($PtywPath) { $p = $PtywPath }
-    else {
-        $p = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\ptyw.exe'
-        if (-not (Test-Path -LiteralPath $p)) {
-            $c = Get-Command ptyw.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($c) { $p = $c.Source }
-        }
-    }
-    if (-not (Test-Path -LiteralPath $p -PathType Leaf)) {
-        throw "ptyw.exe not found (tried '$p'). Run 'make install' in Windows/ptyw first, or give -PtywPath."
+    $p = Find-InstalledPtyw
+    if (-not $p) {
+        throw "No installed ptyw.exe found (looked in $env:WINDIR, %LOCALAPPDATA%\Microsoft\WindowsApps and PATH). Run 'make install' in Windows/ptyw first, or give -PtywPath."
     }
     $script:Ptyw = (Resolve-Path -LiteralPath $p).ProviderPath
     Write-Host "Wrapper: $script:Ptyw    (admin: $(Test-Admin))"
@@ -432,6 +481,7 @@ function Invoke-Main {
         if ($c.Info) { Write-Host "  $($c.Info)" -ForegroundColor DarkGray }
         Write-Host "  now    : $($c.BeforeText)"
         Write-Host "  ptyw   : $($c.AfterText)"
+        if ($c.WrapNote) { Write-Host "           ($($c.WrapNote))" -ForegroundColor DarkGray }
         if ($c.Alt) {
             Write-Host "  gui    : $($c.AltText)" -ForegroundColor Green
             Write-Host "           ($($c.AltNote))" -ForegroundColor DarkGray
