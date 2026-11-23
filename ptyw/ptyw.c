@@ -39,6 +39,9 @@
 #define DEF_COLS 120
 #define DEF_ROWS 30
 
+/* Lets install.sh / the helper script recognise a ptyw copy of any version by content. */
+__attribute__((used)) static const char g_ptyw_marker[] = "PTYW-MARKER-v1";
+
 typedef HRESULT (WINAPI *PFN_CreatePseudoConsole)(COORD, HANDLE, HANDLE, DWORD, HANDLE *);
 typedef void    (WINAPI *PFN_ClosePseudoConsole)(HANDLE);
 
@@ -244,7 +247,7 @@ static const WCHAR USAGE[] =
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmd, int nShow)
 {
     const WCHAR *p;
-    WCHAR tok[MAX_PATH], outfile[MAX_PATH] = L"", alias[MAX_PATH];
+    WCHAR tok[MAX_PATH], outfile[MAX_PATH] = L"", alias[MAX_PATH], prog[MAX_PATH + 8] = L"";
     COORD size = { DEF_COLS, DEF_ROWS };
     HMODULE k32;
     PFN_CreatePseudoConsole pCreate;
@@ -281,7 +284,26 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmd, int nShow)
         if (!lstrcmpiW(alias, L"ptyw")) {
             alias[0] = 0;                     /* explicit mode */
         } else if (n >= 2 && (alias[n - 1] | 0x20) == L'w') {
+            size_t dirLen = (size_t)(base - exe);
             alias[n - 1] = 0;                 /* cmdw -> cmd */
+            /* Prefer the program living right beside this alias (D:\cygwin\bin\bashw.exe
+             * -> D:\cygwin\bin\bash.exe) over whatever a PATH search would find. */
+            if (dirLen + (size_t)lstrlenW(alias) + 4 + 3 < MAX_PATH) {
+                WCHAR cand[MAX_PATH + 8];
+                DWORD attr;
+                CopyMemory(cand, exe, dirLen * sizeof(WCHAR));
+                cand[dirLen] = 0;
+                lstrcatW(cand, alias);
+                lstrcatW(cand, L".exe");
+                attr = GetFileAttributesW(cand);
+                if (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
+                    prog[0] = L'"';
+                    lstrcpyW(prog + 1, cand);
+                    lstrcatW(prog, L"\"");
+                }
+            }
+            if (!prog[0])
+                lstrcpyW(prog, alias);        /* fall back to a by-name search */
         } else {
             WCHAR msg[MAX_PATH + 80];
             wsprintfW(msg, L"ptyw: invoked as \"%s\"; the name must be ptyw or <program>w", alias);
@@ -374,11 +396,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmd, int nShow)
     SetStdHandle(STD_ERROR_HANDLE, NULL);
 
     /* Writable command line: "<prog> <rest>" in alias mode, else the rest as given. */
-    len = lstrlenW(p) + (alias[0] ? lstrlenW(alias) + 1 : 0);
+    len = lstrlenW(p) + (alias[0] ? lstrlenW(prog) + 1 : 0);
     cmd = HeapAlloc(GetProcessHeap(), 0, (len + 1) * sizeof(WCHAR));
     if (!cmd) die(L"ptyw: out of memory");
     if (alias[0]) {
-        lstrcpyW(cmd, alias);
+        lstrcpyW(cmd, prog);
         if (*p) { lstrcatW(cmd, L" "); lstrcatW(cmd, p); }
     } else {
         lstrcpyW(cmd, p);

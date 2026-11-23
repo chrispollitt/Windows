@@ -39,27 +39,18 @@ ptyw.exe: ptyw.c
 test: ptyw.exe
 	./test.sh
 
-# Aliases are hard links (a "junction" can only point at a directory, and
-# symlinks need elevation or Developer Mode). Hard links need the same NTFS
-# volume; otherwise we fall back to copies.
+# One central ptyw.exe in $$dest; each <prog>w.exe alias is placed beside the first <prog>.exe
+# on PATH (details in install.sh). Aliases are hard links (a "junction" can only point at a
+# directory, symlinks need elevation or Developer Mode), or copies across volumes.
 install: ptyw.exe
 	@$(PICK_DEST); \
 	[ -n "$$dest" ] && [ -d "$$dest" ] || { echo "install folder '$$dest' does not exist"; exit 1; }; \
-	cp -f ptyw.exe "$$dest/ptyw.exe" || exit 1; \
-	for p in $(PROGS); do \
-	    rm -f "$$dest/$${p}w.exe"; \
-	    ln "$$dest/ptyw.exe" "$$dest/$${p}w.exe" 2>/dev/null \
-	      || cp -f "$$dest/ptyw.exe" "$$dest/$${p}w.exe"; \
-	    echo "  $$dest/$${p}w.exe"; \
-	done; \
-	echo "Installed ptyw + aliases to $$dest"
+	DEST="$$dest" PROGS="$(PROGS)" ./install.sh install
 
 uninstall:
 	@$(PICK_DEST); \
 	[ -n "$$dest" ] && [ -d "$$dest" ] || { echo "install folder '$$dest' does not exist"; exit 1; }; \
-	rm -f "$$dest/ptyw.exe"; \
-	for p in $(PROGS); do rm -f "$$dest/$${p}w.exe"; done; \
-	echo "Removed ptyw + aliases from $$dest"
+	DEST="$$dest" PROGS="$(PROGS)" ./install.sh uninstall
 
 # Print where install/uninstall would go (to check the prompt logic).
 which-dest:

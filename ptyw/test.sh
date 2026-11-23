@@ -34,4 +34,13 @@ echo "$out" | grep -Eq "Columns:[[:space:]]+90" ; check "alias PTYW_SIZE" $?
 "$T/foo.exe" /c "exit 0" 2>"$T/err.txt" >/dev/null; [ $? = 125 ] && grep -q "must be ptyw" "$T/err.txt"; check "bad alias name" $?
 rm -rf "$T"
 
+# 7. make install: alias beside the first <prog>.exe on PATH; central one for protected folders
+T=$(mktemp -d); mkdir "$T/dest" "$T/bin"; cp "$(command -v cmd)" "$T/bin/fakeprog.exe"
+PATH="$T/bin:$PATH" make -s install DEST="$T/dest" PROGS="fakeprog cmd" </dev/null >/dev/null
+[ -f "$T/bin/fakeprogw.exe" ] && [ -f "$T/dest/cmdw.exe" ] && [ ! -e "$T/dest/fakeprogw.exe" ]; check "install: alias beside program" $?
+"$T/bin/fakeprogw.exe" /c "exit 4" >/dev/null; [ $? = 4 ]; check "installed alias runs its sibling" $?
+PATH="$T/bin:$PATH" make -s uninstall DEST="$T/dest" PROGS="fakeprog cmd" </dev/null >/dev/null
+[ ! -e "$T/bin/fakeprogw.exe" ] && [ ! -e "$T/dest/ptyw.exe" ] && [ -e "$T/bin/fakeprog.exe" ]; check "uninstall removes only ptyw copies" $?
+rm -rf "$T"
+
 exit $fail
