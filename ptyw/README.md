@@ -38,10 +38,19 @@ is an error. Options aren't parsed in this mode; use the environment instead:
     make install PROGS="bash cmd php"                # choose aliases
     make uninstall
 
-Installs `ptyw.exe` plus `bashw sh zsh cmd powershell pwsh php perl ruby node lua wsl`
-aliases (`bashw.exe`, `cmdw.exe`, …) as hard links to it (a junction can only target a
-directory; symlinks need elevation; copies are the fallback across volumes). No `pythonw`
-alias: that already exists.
+Installs one central `ptyw.exe`, plus a `<prog>w.exe` alias for each of
+`bash sh zsh cmd powershell pwsh php perl ruby node lua wsl`, placed **beside the first
+`<prog>.exe` on PATH** (e.g. `/usr/bin/bashw.exe` next to `/usr/bin/bash.exe`). An alias runs the
+program in its own folder first, so `bashw` can only ever be *that* bash, whatever else is on PATH.
+Where that isn't possible — the program lives under `%WINDIR%` (`cmd`, `powershell`, `wsl` in
+System32), the folder isn't writable, or there's no plain `<prog>.exe` there — the alias goes next
+to the central `ptyw.exe` instead. Programs not found on PATH are skipped. Aliases are hard links
+(a junction can only target a directory; symlinks need elevation) or copies across volumes. No
+`pythonw` alias: that already exists.
+
+Everything placed is listed in `ptyw-installed.txt` beside the central `ptyw.exe`; `make uninstall`
+(and the next `make install`) use it, and only ever delete files that really are ptyw copies.
+The PATH searched is the one `make` runs with, i.e. your Cygwin shell's.
 
 ## Moving existing startup entries and scheduled tasks to ptyw
 
@@ -49,10 +58,12 @@ alias: that already exists.
 (HKCU/HKLM) and Startup-folder shortcuts, and interactively offers to rewrite each one as
 the *installed* wrapper (`%WINDIR%\ptyw.exe`, else the per-user WindowsApps copy, else PATH;
 never the build next to the script). An entry that spells out a full path keeps exactly that
-program: it becomes `ptyw.exe "D:\cygwin\bin\bash.exe" args`. Only an entry that names the
-program bare (`cmd`, `powershell.exe`) gets the installed alias (`cmdw.exe /c x`), and then only
-if running `<prog>` by name would find the very same program (a bare `bash` resolves to the WSL
-`System32\bash.exe` first, so it falls back to the `ptyw.exe "<path>"` form, with a note why). Already-wrapped and GUI programs are skipped; every change is logged
+program. Best case, an alias installed *beside* that program is used
+(`D:\cygwin\bin\bash.exe` → `D:\cygwin\bin\bashw.exe`), which can only run that very program.
+Otherwise a full-path entry becomes `ptyw.exe "D:\cygwin\bin\bash.exe" args`, and a bare name
+(`cmd`, `powershell.exe`) gets the central alias (`cmdw.exe /c x`), but only if running `<prog>`
+by name would find the very same program (a bare `bash` resolves to the WSL `System32\bash.exe`
+first, so it falls back to the `ptyw.exe "<path>"` form, with a note why). Already-wrapped and GUI programs are skipped; every change is logged
 to `BAK\ptyw-update-<stamp>.json` (newest 4 kept) for `-Undo`.
 
     powershell.exe -ExecutionPolicy Bypass -File ptyw-update-startup.ps1 -List     # just look

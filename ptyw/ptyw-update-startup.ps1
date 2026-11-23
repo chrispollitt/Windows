@@ -122,7 +122,12 @@ function Test-IsWrapper([string]$Path) {
     if ($name -eq 'ptyw.exe') { return $true }
     if (-not $name.EndsWith('w.exe') -or -not $script:Ptyw) { return $false }
     try {
-        if ((Get-Item -LiteralPath $Path).Length -ne (Get-Item -LiteralPath $script:Ptyw).Length) { return $false }
+        $len = (Get-Item -LiteralPath $Path).Length
+        if ($len -gt 2MB) { return $false }
+        # newer builds carry a marker string; older ones are recognised by being byte-identical
+        $bytes = [IO.File]::ReadAllBytes($Path)
+        if ([Text.Encoding]::GetEncoding(28591).GetString($bytes).Contains('PTYW-MARKER-v1')) { return $true }
+        if ($len -ne (Get-Item -LiteralPath $script:Ptyw).Length) { return $false }
         return ((Get-FileHash -LiteralPath $Path).Hash -eq (Get-FileHash -LiteralPath $script:Ptyw).Hash)
     } catch { return $false }
 }
@@ -148,6 +153,12 @@ function Get-WrapForm($Tg) {
     $generic = @{ Exe = $script:Ptyw; Arguments = (Join-Args $Tg.Exe $Tg.Arguments); Note = $null }
     if ([IO.Path]::GetExtension($Tg.Exe).ToLower() -ne '.exe') { return $generic }      # .bat/.cmd: no alias
     $name  = [IO.Path]::GetFileNameWithoutExtension($Tg.Exe)
+    # Best: an alias installed right beside the program (D:\cygwin\bin\bashw.exe next to bash.exe).
+    # It can only ever run that very program, so it honours a full path *and* a bare name.
+    $sib = Join-Path (Split-Path -Parent $Tg.Exe) "${name}w.exe"
+    if ((Test-Path -LiteralPath $sib -PathType Leaf) -and (Test-IsWrapper $sib)) {
+        return @{ Exe = $sib; Arguments = [string]$Tg.Arguments; Note = 'alias installed beside the program' }
+    }
     $dir   = Split-Path -Parent $script:Ptyw
     $alias = Join-Path $dir "${name}w.exe"
     # must really be a copy/link of ptyw (pyw.exe, for instance, is the Python launcher)
