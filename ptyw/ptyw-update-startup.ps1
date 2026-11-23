@@ -21,6 +21,11 @@
                          (make install DEST=/cygdrive/c/Windows), since they can't see your profile.
 .PARAMETER List          Only list what would be offered; change nothing.
 .PARAMETER DryRun        Walk through everything, but don't apply (no prompts).
+.PARAMETER Associations  Also handle entries that launch a *document* by file association, e.g. a task, Run
+                         value or shortcut whose target is foo.py: the open command registered for .py
+                         (as Windows itself would use) is looked up, and if it is a console program the
+                         entry becomes   ptyw.exe "C:\...\python.exe" "foo.py" args .  Associations that
+                         open a GUI program (e.g. .ps1 -> Notepad) are left alone.
 .PARAMETER IncludeMicrosoft  Also consider \Microsoft\* scheduled tasks.
 .PARAMETER Undo          Restore the changes recorded in the given backup file.
 
@@ -34,6 +39,7 @@ param(
     [string]$PtywPath,
     [switch]$List,
     [switch]$DryRun,
+    [switch]$Associations,
     [switch]$IncludeMicrosoft,
     [string]$Undo
 )
@@ -132,6 +138,44 @@ function Join-Args([string]$First, [string]$Rest) {
     return $r
 }
 
+# The registered "open" command for an extension, e.g. '"C:\Python\python.exe" "%1" %*'
+function Get-AssocCommand([string]$Ext) {
+    if (-not ('PtywNative.Assoc' -as [type])) {
+        Add-Type -Namespace PtywNative -Name Assoc -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("shlwapi.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+public static extern int AssocQueryString(uint flags, int str, string assoc, string extra,
+                                          System.Text.StringBuilder outBuf, ref uint len);
+'@
+    }
+    $sb = New-Object System.Text.StringBuilder 2048
+    [uint32]$len = 2048
+    # ASSOCF_NOTRUNCATE = 0x20, ASSOCSTR_COMMAND = 1; honours the user's "Open with" choice
+    if ([PtywNative.Assoc]::AssocQueryString(0x20, 1, $Ext, 'open', $sb, [ref]$len) -ne 0) { return $null }
+    return $sb.ToString()
+}
+
+# What does launching this file really run?  -> @{ Exe; Arguments; Via } or $null.
+#  - exe/com/bat/cmd: itself.
+#  - anything else, with -Associations: the interpreter its association names (Windows'
+#    own %1 / %L / %* substitution), provided the template needs nothing more exotic.
+function Get-LaunchTarget([string]$File, [string]$ArgText) {
+    $ext = [IO.Path]::GetExtension($File).ToLower()
+    if ($ext -in '.exe', '.com', '.bat', '.cmd') { return @{ Exe = $File; Arguments = $ArgText; Via = $null } }
+    if (-not $Associations -or -not $ext) { return $null }
+    $tpl = Get-AssocCommand $ext
+    if (-not $tpl) { return $null }
+    $tpl = [Environment]::ExpandEnvironmentVariables($tpl)
+    $mF = [string][char]1; $mA = [string][char]2                  # markers, so the file name and
+    $tpl = $tpl -replace '%[2-9]', ''                             # arguments are inserted verbatim
+    $tpl = $tpl -replace '%[1lL0]', $mF -replace '%\*', $mA
+    if ($tpl -match '%') { return $null }                         # %~..., %<n>... etc.: don't guess
+    $tpl = $tpl.Replace($mF, $File).Replace($mA, $ArgText)
+    $sp = Split-CommandLine $tpl
+    $exe = Resolve-Exe $sp.Exe $null
+    if (-not $exe) { return $null }
+    return @{ Exe = $exe; Arguments = $sp.Arguments; Via = "$ext association" }
+}
+
 function Test-InUserProfile([string]$Path) {
     $Path.StartsWith($env:USERPROFILE + '\', [StringComparison]::OrdinalIgnoreCase)
 }
@@ -203,12 +247,15 @@ function Get-TaskCandidates {
         foreach ($a in @($t.Actions)) {
             $i++
             if (-not $a.Execute) { continue }
-            $exe = Resolve-Exe $a.Execute $a.WorkingDirectory
-            if (-not $exe -or (Test-IsWrapper $exe) -or -not (Test-ConsoleProgram $exe)) { continue }
+            $file = Resolve-Exe $a.Execute $a.WorkingDirectory
+            if (-not $file) { continue }
+            $tg = Get-LaunchTarget $file ([string]$a.Arguments)
+            if (-not $tg -or (Test-IsWrapper $tg.Exe) -or -not (Test-ConsoleProgram $tg.Exe)) { continue }
             $before = @{ TaskPath = $t.TaskPath; TaskName = $t.TaskName; Index = $i; Execute = $a.Execute
                          Arguments = [string]$a.Arguments; WorkingDirectory = [string]$a.WorkingDirectory }
             $after = @{ TaskPath = $t.TaskPath; TaskName = $t.TaskName; Index = $i; Execute = $script:Ptyw
-                        Arguments = (Join-Args $exe ([string]$a.Arguments)); WorkingDirectory = [string]$a.WorkingDirectory }
+                        Arguments = (Join-Args $tg.Exe $tg.Arguments); WorkingDirectory = [string]$a.WorkingDirectory }
+            $infoA = if ($tg.Via) { "$info; via $($tg.Via)" } else { $info }
             $skip = $null
             if ([string]$t.Principal.LogonType -eq 'Password') {
                 $skip = 'stored-password task: Set-ScheduledTask would need the password; edit it by hand'
@@ -217,7 +264,7 @@ function Get-TaskCandidates {
             } elseif (-not $mine -and (Test-InUserProfile $script:Ptyw)) {
                 $skip = "runs as $uid, which can't use $script:Ptyw; install ptyw system-wide and give -PtywPath"
             }
-            New-Candidate 'task' "Scheduled task  $($t.TaskPath)$($t.TaskName)  (action $($i + 1))" $info `
+            New-Candidate 'task' "Scheduled task  $($t.TaskPath)$($t.TaskName)  (action $($i + 1))" $infoA `
                 ("$($a.Execute) $($a.Arguments)".Trim()) ("$($after.Execute) $($after.Arguments)") $before $after $skip
         }
     }
@@ -235,14 +282,16 @@ function Get-RunCandidates {
                 $kind = [string]$k.GetValueKind($n)
                 if ($kind -ne 'String' -and $kind -ne 'ExpandString') { continue }
                 $sp  = Split-CommandLine $raw
-                $exe = Resolve-Exe $sp.Exe $null
-                if (-not $exe -or (Test-IsWrapper $exe) -or -not (Test-ConsoleProgram $exe)) { continue }
-                $newVal = (Join-Args $script:Ptyw ('"' + $exe + '"' + $(if ($sp.Arguments) { ' ' + $sp.Arguments } else { '' })))
+                $file = Resolve-Exe $sp.Exe $null
+                if (-not $file) { continue }
+                $tg = Get-LaunchTarget $file $sp.Arguments
+                if (-not $tg -or (Test-IsWrapper $tg.Exe) -or -not (Test-ConsoleProgram $tg.Exe)) { continue }
+                $newVal = (Join-Args $script:Ptyw (Join-Args $tg.Exe $tg.Arguments))
                 $before = @{ Hive = $loc.Hive; Sub = $loc.Sub; Name = $n; Value = $raw; Kind = $kind }
                 $after  = @{ Hive = $loc.Hive; Sub = $loc.Sub; Name = $n; Value = $newVal; Kind = $kind }
                 $skip = $null
                 if ($loc.Admin -and -not $admin) { $skip = 'needs an elevated shell' }
-                New-Candidate 'run' "Run key  $($loc.Hive)\$($loc.Sub)  value '$n'" '' $raw $newVal $before $after $skip
+                New-Candidate 'run' "Run key  $($loc.Hive)\$($loc.Sub)  value '$n'" $(if ($tg.Via) { "via $($tg.Via)" } else { '' }) $raw $newVal $before $after $skip
             }
         } finally { $k.Close() }
     }
@@ -255,17 +304,19 @@ function Get-ShortcutCandidates {
         if (-not $f.Path -or -not (Test-Path -LiteralPath $f.Path)) { continue }
         foreach ($file in Get-ChildItem -LiteralPath $f.Path -Filter *.lnk -File) {
             $l = $sh.CreateShortcut($file.FullName)
-            $exe = Resolve-Exe $l.TargetPath $l.WorkingDirectory
-            if (-not $exe -or (Test-IsWrapper $exe) -or -not (Test-ConsoleProgram $exe)) { continue }
+            $file = Resolve-Exe $l.TargetPath $l.WorkingDirectory
+            if (-not $file) { continue }
+            $tg = Get-LaunchTarget $file ([string]$l.Arguments)
+            if (-not $tg -or (Test-IsWrapper $tg.Exe) -or -not (Test-ConsoleProgram $tg.Exe)) { continue }
             $icon = [string]$l.IconLocation
-            $newIcon = if (-not $icon -or $icon.StartsWith(',')) { "$exe,0" } else { $icon }   # keep the original icon
+            $newIcon = if (-not $icon -or $icon.StartsWith(',')) { "$($tg.Exe),0" } else { $icon }   # keep an icon
             $before = @{ Link = $file.FullName; Target = $l.TargetPath; Arguments = [string]$l.Arguments
                          WorkingDirectory = [string]$l.WorkingDirectory; IconLocation = $icon }
-            $after  = @{ Link = $file.FullName; Target = $script:Ptyw; Arguments = (Join-Args $exe ([string]$l.Arguments))
+            $after  = @{ Link = $file.FullName; Target = $script:Ptyw; Arguments = (Join-Args $tg.Exe $tg.Arguments)
                          WorkingDirectory = [string]$l.WorkingDirectory; IconLocation = $newIcon }
             $skip = $null
             if ($f.Admin -and -not $admin) { $skip = 'needs an elevated shell' }
-            New-Candidate 'lnk' "Startup shortcut  $($file.FullName)" '' ("$($l.TargetPath) $($l.Arguments)".Trim()) `
+            New-Candidate 'lnk' "Startup shortcut  $($file.FullName)" $(if ($tg.Via) { "via $($tg.Via)" } else { '' }) ("$($l.TargetPath) $($l.Arguments)".Trim()) `
                 ("$($after.Target) $($after.Arguments)") $before $after $skip
         }
         foreach ($file in Get-ChildItem -LiteralPath $f.Path -File | Where-Object { $_.Extension -in '.bat', '.cmd' }) {

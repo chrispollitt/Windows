@@ -54,6 +54,13 @@ change is logged to `BAK\ptyw-update-<stamp>.json` (newest 4 kept) for `-Undo`.
     powershell.exe -ExecutionPolicy Bypass -File ptyw-update-startup.ps1           # ask, then change
     powershell.exe -ExecutionPolicy Bypass -File ptyw-update-startup.ps1 -Undo BAK\ptyw-update-STAMP.json
 
+By default only entries that launch a console program *directly* are offered (`bash.exe -c …`,
+`foo.bat`, `python foo.py`). `-Associations` also resolves entries that launch a *document* via
+its file association — a task, Run value or shortcut targeting `foo.py` becomes
+`ptyw.exe "C:\Windows\py.exe" "foo.py" args`, using the same open command Windows would
+(`.py` → `py.exe`). Associations that open a GUI program (`.ps1` → Notepad, `.vbs` → WScript)
+are left alone.
+
 Other switches: `-DryRun`, `-IncludeMicrosoft` (also \Microsoft\* tasks), `-PtywPath`.
 Tasks that run as SYSTEM or another user need an elevated shell and a system-wide ptyw.exe
 (`make install DEST=/cygdrive/c/Windows`, then `-PtywPath C:\Windows\ptyw.exe`); tasks with a
