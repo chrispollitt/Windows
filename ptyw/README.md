@@ -47,8 +47,13 @@ alias: that already exists.
 
 `ptyw-update-startup.ps1` finds the console programs among your scheduled tasks, Run keys
 (HKCU/HKLM) and Startup-folder shortcuts, and interactively offers to rewrite each one as
-`ptyw.exe "full\path\prog.exe" args`. Already-wrapped and GUI programs are skipped; every
-change is logged to `BAK\ptyw-update-<stamp>.json` (newest 4 kept) for `-Undo`.
+the *installed* wrapper (`%WINDIR%\ptyw.exe`, else the per-user WindowsApps copy, else PATH;
+never the build next to the script). Where the installed alias exists and running `<prog>` by
+name would find the very same program, the alias is used (`cmd.exe /c x` → `cmdw.exe /c x`);
+otherwise the entry becomes `ptyw.exe "full\path\prog.exe" args`, with a note saying why. (E.g.
+Cygwin's `bash.exe` is *not* turned into `bashw.exe`, because a bare `bash` resolves to the WSL
+`System32\bash.exe` first.) Already-wrapped and GUI programs are skipped; every change is logged
+to `BAK\ptyw-update-<stamp>.json` (newest 4 kept) for `-Undo`.
 
     powershell.exe -ExecutionPolicy Bypass -File ptyw-update-startup.ps1 -List     # just look
     powershell.exe -ExecutionPolicy Bypass -File ptyw-update-startup.ps1           # ask, then change
@@ -69,6 +74,5 @@ GUI program) instead of wrapping with ptyw. It is lighter but the script loses i
 way to say yes. `a` = all remaining with ptyw, `ag` = all remaining, twin where one exists.
 
 Other switches: `-DryRun`, `-IncludeMicrosoft` (also \Microsoft\* tasks), `-PtywPath`.
-Tasks that run as SYSTEM or another user need an elevated shell and a system-wide ptyw.exe
-(`make install DEST=/cygdrive/c/Windows`, then `-PtywPath C:\Windows\ptyw.exe`); tasks with a
-stored password are skipped.
+Tasks that run as SYSTEM or another user need an elevated shell and a system-wide install
+(`make install` from an elevated shell, answer `y`); tasks with a stored password are skipped.
