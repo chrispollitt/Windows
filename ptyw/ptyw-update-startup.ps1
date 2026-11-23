@@ -13,6 +13,13 @@
   The original program is always written as a full path, so the wrapper never picks a
   different program off PATH.  Already-wrapped and GUI programs are left alone.
 
+  Interpreters that ship a windowless twin (python -> pythonw, py -> pyw, java -> javaw,
+  cscript -> wscript, php -> php-win, perl -> wperl, ruby -> rubyw) get a second choice:
+  swap in that GUI-subsystem sibling (found next to the original, and checked to really be
+  a GUI program) instead of wrapping.  It is lighter, but the script then has no console:
+  stdout/stdin are absent and cscript's WScript.Echo becomes message boxes.  Wrapping with
+  ptyw keeps console semantics, so it is the default choice ("y"/"p"); "g" picks the sibling.
+
   Every change is recorded (before/after) in BAK\ptyw-update-<stamp>.json next to this
   script; -Undo <file> puts everything back.  The newest 4 such files are kept.
 
@@ -176,6 +183,31 @@ function Get-LaunchTarget([string]$File, [string]$ArgText) {
     return @{ Exe = $exe; Arguments = $sp.Arguments; Via = "$ext association" }
 }
 
+# Console interpreters that come with a GUI-subsystem twin in the same folder.
+$script:GuiTwins = @(
+    @{ Match = '^python[\d.]*\.exe$'; Twin = 'pythonw.exe';  Note = 'no console: sys.stdout/stdin are None (print is dropped, input() fails)' },
+    @{ Match = '^py\.exe$';           Twin = 'pyw.exe';      Note = 'no console: the script gets no stdout/stdin' },
+    @{ Match = '^java\.exe$';         Twin = 'javaw.exe';    Note = 'no console: System.out/in are not attached' },
+    @{ Match = '^cscript\.exe$';      Twin = 'wscript.exe';  Note = 'WScript.Echo / StdOut become message boxes; //B-style silent scripts are fine' },
+    @{ Match = '^php\.exe$';          Twin = 'php-win.exe';  Note = 'no console: echo output is dropped' },
+    @{ Match = '^perl\.exe$';         Twin = 'wperl.exe';    Note = 'no console: STDOUT/STDIN are not attached' },
+    @{ Match = '^ruby\.exe$';         Twin = 'rubyw.exe';    Note = 'no console: STDOUT/STDIN are not attached' }
+)
+
+# -> @{ Path; Note } for the GUI twin of a console interpreter, or $null
+function Get-GuiTwin([string]$Exe) {
+    $name = [IO.Path]::GetFileName($Exe).ToLower()
+    foreach ($t in $script:GuiTwins) {
+        if ($name -match $t.Match) {
+            $p = Join-Path (Split-Path -Parent $Exe) $t.Twin
+            if ((Test-Path -LiteralPath $p -PathType Leaf) -and (Get-PeSubsystem $p) -eq 2) {
+                return @{ Path = $p; Note = $t.Note }
+            }
+        }
+    }
+    return $null
+}
+
 function Test-InUserProfile([string]$Path) {
     $Path.StartsWith($env:USERPROFILE + '\', [StringComparison]::OrdinalIgnoreCase)
 }
@@ -228,11 +260,26 @@ function Invoke-Change($Kind, $S) {          # $S = before-state or after-state
 }
 
 # ---------------------------------------------------------------- collectors
-# Each candidate: Kind, Label, Info, BeforeText, AfterText, Before, After, Skip (reason or $null)
+# Each candidate: Kind, Label, Info, BeforeText, AfterText, Before, After, Skip (reason or $null),
+# and when the interpreter has a GUI twin (pythonw etc.): Alt (state using it), AltText, AltNote.
 
-function New-Candidate($Kind, $Label, $Info, $BeforeText, $AfterText, $Before, $After, $Skip) {
+function New-Candidate($Kind, $Label, $Info, $BeforeText, $AfterText, $Before, $After, $Skip, $Tg = $null) {
+    $alt = $null; $altText = ''; $altNote = ''
+    $twin = if ($Tg) { Get-GuiTwin $Tg.Exe } else { $null }
+    if ($twin) {
+        $alt = $After.Clone()
+        switch ($Kind) {
+            'task' { $alt.Execute = $twin.Path; $alt.Arguments = [string]$Tg.Arguments
+                     $altText = "$($alt.Execute) $($alt.Arguments)" }
+            'run'  { $alt.Value = Join-Args $twin.Path $Tg.Arguments; $altText = $alt.Value }
+            'lnk'  { $alt.Target = $twin.Path; $alt.Arguments = [string]$Tg.Arguments
+                     $altText = "$($alt.Target) $($alt.Arguments)" }
+        }
+        $altNote = $twin.Note
+    }
     [pscustomobject]@{ Kind = $Kind; Label = $Label; Info = $Info; BeforeText = $BeforeText
-                       AfterText = $AfterText; Before = $Before; After = $After; Skip = $Skip }
+                       AfterText = $AfterText; Before = $Before; After = $After; Skip = $Skip
+                       Alt = $alt; AltText = $altText.Trim(); AltNote = $altNote }
 }
 
 function Get-TaskCandidates {
@@ -265,7 +312,7 @@ function Get-TaskCandidates {
                 $skip = "runs as $uid, which can't use $script:Ptyw; install ptyw system-wide and give -PtywPath"
             }
             New-Candidate 'task' "Scheduled task  $($t.TaskPath)$($t.TaskName)  (action $($i + 1))" $infoA `
-                ("$($a.Execute) $($a.Arguments)".Trim()) ("$($after.Execute) $($after.Arguments)") $before $after $skip
+                ("$($a.Execute) $($a.Arguments)".Trim()) ("$($after.Execute) $($after.Arguments)") $before $after $skip $tg
         }
     }
 }
@@ -291,7 +338,7 @@ function Get-RunCandidates {
                 $after  = @{ Hive = $loc.Hive; Sub = $loc.Sub; Name = $n; Value = $newVal; Kind = $kind }
                 $skip = $null
                 if ($loc.Admin -and -not $admin) { $skip = 'needs an elevated shell' }
-                New-Candidate 'run' "Run key  $($loc.Hive)\$($loc.Sub)  value '$n'" $(if ($tg.Via) { "via $($tg.Via)" } else { '' }) $raw $newVal $before $after $skip
+                New-Candidate 'run' "Run key  $($loc.Hive)\$($loc.Sub)  value '$n'" $(if ($tg.Via) { "via $($tg.Via)" } else { '' }) $raw $newVal $before $after $skip $tg
             }
         } finally { $k.Close() }
     }
@@ -317,7 +364,7 @@ function Get-ShortcutCandidates {
             $skip = $null
             if ($f.Admin -and -not $admin) { $skip = 'needs an elevated shell' }
             New-Candidate 'lnk' "Startup shortcut  $($file.FullName)" $(if ($tg.Via) { "via $($tg.Via)" } else { '' }) ("$($l.TargetPath) $($l.Arguments)".Trim()) `
-                ("$($after.Target) $($after.Arguments)") $before $after $skip
+                ("$($after.Target) $($after.Arguments)") $before $after $skip $tg
         }
         foreach ($file in Get-ChildItem -LiteralPath $f.Path -File | Where-Object { $_.Extension -in '.bat', '.cmd' }) {
             Write-Host "note: $($file.FullName) is a batch file in a Startup folder; not handled (wrap it by hand: ptyw.exe `"$($file.FullName)`")" -ForegroundColor DarkGray
@@ -377,29 +424,44 @@ function Invoke-Main {
     if (-not $cands.Count) { Write-Host 'Nothing to update: no console-subsystem startup entries or scheduled tasks found.'; return }
     Write-Host "$($cands.Count) candidate(s): console programs that would show a window."
 
-    $all = $false; $n = 0; $done = 0
+    $allMode = $null; $n = 0; $done = 0          # $allMode: $null, 'ptyw' or 'gui'
     foreach ($c in $cands) {
         $n++
         Write-Host ''
         Write-Host "[$n/$($cands.Count)] $($c.Label)" -ForegroundColor Cyan
         if ($c.Info) { Write-Host "  $($c.Info)" -ForegroundColor DarkGray }
         Write-Host "  now    : $($c.BeforeText)"
-        Write-Host "  becomes: $($c.AfterText)"
+        Write-Host "  ptyw   : $($c.AfterText)"
+        if ($c.Alt) {
+            Write-Host "  gui    : $($c.AltText)" -ForegroundColor Green
+            Write-Host "           ($($c.AltNote))" -ForegroundColor DarkGray
+        }
         if ($c.Skip) { Write-Host "  skipped: $($c.Skip)" -ForegroundColor Yellow; continue }
         if ($List -or $DryRun) { continue }
-        if (-not $all) {
-            $ans = (Read-Host '  Update? [y]es / [N]o / [a]ll remaining / [q]uit').Trim().ToLower()
+        $choice = $allMode
+        if (-not $choice) {
+            $q = if ($c.Alt) { '  Update? [p]tyw wrap / [g]ui twin / [N]o / [a]ll remaining (ptyw) / [ag] all, gui where possible / [q]uit' }
+                 else        { '  Update? [y]es / [N]o / [a]ll remaining / [q]uit' }
+            $ans = (Read-Host $q).Trim().ToLower()
             if ($ans.StartsWith('q')) { break }
-            if ($ans.StartsWith('a')) { $all = $true }
-            elseif (-not $ans.StartsWith('y')) { continue }
+            elseif ($ans -eq 'ag') { $allMode = 'gui'; $choice = 'gui' }
+            elseif ($ans.StartsWith('a')) { $allMode = 'ptyw'; $choice = 'ptyw' }
+            elseif ($ans.StartsWith('g')) {
+                if (-not $c.Alt) { Write-Host '  no GUI twin for this one; skipped.' -ForegroundColor Yellow; continue }
+                $choice = 'gui'
+            }
+            elseif ($ans.StartsWith('y') -or $ans.StartsWith('p')) { $choice = 'ptyw' }
+            else { continue }
         }
+        if ($choice -eq 'gui' -and -not $c.Alt) { $choice = 'ptyw' }
+        $state = if ($choice -eq 'gui') { $c.Alt } else { $c.After }
         try {
-            Invoke-Change $c.Kind $c.After
-            [void]$script:Log.Add([pscustomobject]@{ Kind = $c.Kind; Label = $c.Label; Before = $c.Before; After = $c.After
-                                                    Time = (Get-Date).ToString('s') })
+            Invoke-Change $c.Kind $state
+            [void]$script:Log.Add([pscustomobject]@{ Kind = $c.Kind; Label = $c.Label; Before = $c.Before; After = $state
+                                                    Via = $choice; Time = (Get-Date).ToString('s') })
             Save-Log
             $done++
-            Write-Host '  updated.' -ForegroundColor Green
+            Write-Host "  updated ($choice)." -ForegroundColor Green
         } catch {
             Write-Host "  FAILED: $($_.Exception.Message)" -ForegroundColor Red
         }

@@ -61,6 +61,13 @@ its file association — a task, Run value or shortcut targeting `foo.py` become
 (`.py` → `py.exe`). Associations that open a GUI program (`.ps1` → Notepad, `.vbs` → WScript)
 are left alone.
 
+Interpreters that ship a windowless twin (`python`→`pythonw`, `py`→`pyw`, `java`→`javaw`,
+`cscript`→`wscript`, `php`→`php-win`, `perl`→`wperl`, `ruby`→`rubyw`) get a second choice at
+the prompt: `g` swaps in the GUI-subsystem twin (found next to the original and verified to be a
+GUI program) instead of wrapping with ptyw. It is lighter but the script loses its console
+(stdout/stdin absent; `WScript.Echo` becomes message boxes), so `p`/`y` (ptyw) stays the default
+way to say yes. `a` = all remaining with ptyw, `ag` = all remaining, twin where one exists.
+
 Other switches: `-DryRun`, `-IncludeMicrosoft` (also \Microsoft\* tasks), `-PtywPath`.
 Tasks that run as SYSTEM or another user need an elevated shell and a system-wide ptyw.exe
 (`make install DEST=/cygdrive/c/Windows`, then `-PtywPath C:\Windows\ptyw.exe`); tasks with a
