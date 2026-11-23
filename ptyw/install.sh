@@ -21,7 +21,19 @@ progs=${PROGS:-}
 manifest="$dest/ptyw-installed.txt"
 winroot=$(cygpath -u "${WINDIR:-C:\\Windows}")
 
-is_ptyw() { [ -f "$1" ] && grep -qa 'PTYW-MARKER-v1' "$1"; }     # marker string built into ptyw.exe
+# Files are given explicit rwxr-xr-x: a copy made across volumes from an elevated shell can
+# otherwise end up with an ACL that denies even its owner read access (then it cannot be
+# started, nor recognised below).
+fixperm() { chmod 755 -- "$1" 2>/dev/null; }
+
+# a file this install placed earlier (listed in the manifest) -- safe to repair permissions on
+in_manifest() { [ -f "$manifest" ] && grep -qxF -- "$1" "$manifest"; }
+
+is_ptyw() {                                                      # marker string built into ptyw.exe
+    [ -f "$1" ] || return 1
+    if ! head -c1 -- "$1" >/dev/null 2>&1 && in_manifest "$1"; then fixperm "$1"; fi
+    grep -qa 'PTYW-MARKER-v1' "$1"
+}
 
 remove_if_ptyw() {
     if [ ! -e "$1" ]; then return 0; fi
@@ -37,6 +49,7 @@ case $mode in
 install)
     [ -f ./ptyw.exe ] || { echo "install.sh: build ptyw.exe first (make)" >&2; exit 1; }
     cp -f ./ptyw.exe "$dest/ptyw.exe" || exit 1
+    fixperm "$dest/ptyw.exe"
     echo "  $dest/ptyw.exe"
     placed=()
     for p in $progs; do
@@ -55,6 +68,8 @@ install)
         fi
         rm -f -- "$target"
         ln "$dest/ptyw.exe" "$target" 2>/dev/null || cp -f "$dest/ptyw.exe" "$target" || { echo "  $target: failed"; continue; }
+        fixperm "$target"
+        if ! head -c1 -- "$target" >/dev/null 2>&1; then echo "  $target: not readable after install (check its permissions)"; continue; fi
         placed+=("$target")
         echo "  $target   [$where]"
     done
