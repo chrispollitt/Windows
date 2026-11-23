@@ -152,6 +152,12 @@ function Get-WrapForm($Tg) {
     $alias = Join-Path $dir "${name}w.exe"
     # must really be a copy/link of ptyw (pyw.exe, for instance, is the Python launcher)
     if (-not (Test-Path -LiteralPath $alias -PathType Leaf) -or -not (Test-IsWrapper $alias)) { return $generic }
+    # An entry that spells out a full path gets exactly that program, never whatever the alias
+    # happens to find by name (even if that looks identical today, PATH can differ per user/task).
+    if (-not $Tg.Bare) {
+        $generic.Note = "alias $(Split-Path -Leaf $alias) not used: the entry names a full path, kept as is"
+        return $generic
+    }
     $hit = Find-OnSearchPath "$name.exe" $dir
     if ($hit -and ([IO.Path]::GetFullPath($hit) -ieq [IO.Path]::GetFullPath($Tg.Exe))) {
         return @{ Exe = $alias; Arguments = [string]$Tg.Arguments; Note = $null }
@@ -202,9 +208,14 @@ public static extern int AssocQueryString(uint flags, int str, string assoc, str
 #  - exe/com/bat/cmd: itself.
 #  - anything else, with -Associations: the interpreter its association names (Windows'
 #    own %1 / %L / %* substitution), provided the template needs nothing more exotic.
-function Get-LaunchTarget([string]$File, [string]$ArgText) {
+function Get-LaunchTarget([string]$File, [string]$ArgText, [string]$Original = "") {
     $ext = [IO.Path]::GetExtension($File).ToLower()
-    if ($ext -in '.exe', '.com', '.bat', '.cmd') { return @{ Exe = $File; Arguments = $ArgText; Via = $null } }
+    if ($ext -in '.exe', '.com', '.bat', '.cmd') {
+        # Bare = the entry named the program without a directory ("cmd", "bash.exe"), so it was
+        # found by search; a spelled-out path ("D:\cygwin\bin\bash.exe") must be kept exactly.
+        $o = $Original.Trim().Trim('"')
+        return @{ Exe = $File; Arguments = $ArgText; Via = $null; Bare = ($o -ne '' -and $o -notmatch '[\\/]') }
+    }
     if (-not $Associations -or -not $ext) { return $null }
     $tpl = Get-AssocCommand $ext
     if (-not $tpl) { return $null }
@@ -217,7 +228,7 @@ function Get-LaunchTarget([string]$File, [string]$ArgText) {
     $sp = Split-CommandLine $tpl
     $exe = Resolve-Exe $sp.Exe $null
     if (-not $exe) { return $null }
-    return @{ Exe = $exe; Arguments = $sp.Arguments; Via = "$ext association" }
+    return @{ Exe = $exe; Arguments = $sp.Arguments; Via = "$ext association"; Bare = $false }
 }
 
 # Console interpreters that come with a GUI-subsystem twin in the same folder.
@@ -334,7 +345,7 @@ function Get-TaskCandidates {
             if (-not $a.Execute) { continue }
             $file = Resolve-Exe $a.Execute $a.WorkingDirectory
             if (-not $file) { continue }
-            $tg = Get-LaunchTarget $file ([string]$a.Arguments)
+            $tg = Get-LaunchTarget $file ([string]$a.Arguments) ([string]$a.Execute)
             if (-not $tg -or (Test-IsWrapper $tg.Exe) -or -not (Test-ConsoleProgram $tg.Exe)) { continue }
             $before = @{ TaskPath = $t.TaskPath; TaskName = $t.TaskName; Index = $i; Execute = $a.Execute
                          Arguments = [string]$a.Arguments; WorkingDirectory = [string]$a.WorkingDirectory }
@@ -370,7 +381,7 @@ function Get-RunCandidates {
                 $sp  = Split-CommandLine $raw
                 $file = Resolve-Exe $sp.Exe $null
                 if (-not $file) { continue }
-                $tg = Get-LaunchTarget $file $sp.Arguments
+                $tg = Get-LaunchTarget $file $sp.Arguments $sp.Exe
                 if (-not $tg -or (Test-IsWrapper $tg.Exe) -or -not (Test-ConsoleProgram $tg.Exe)) { continue }
                 $w = Get-WrapForm $tg; $tg.WrapNote = $w.Note
                 $newVal = (Join-Args $w.Exe $w.Arguments)
@@ -393,7 +404,7 @@ function Get-ShortcutCandidates {
             $l = $sh.CreateShortcut($file.FullName)
             $target = Resolve-Exe $l.TargetPath $l.WorkingDirectory
             if (-not $target) { continue }
-            $tg = Get-LaunchTarget $target ([string]$l.Arguments)
+            $tg = Get-LaunchTarget $target ([string]$l.Arguments) ([string]$l.TargetPath)
             if (-not $tg -or (Test-IsWrapper $tg.Exe) -or -not (Test-ConsoleProgram $tg.Exe)) { continue }
             $icon = [string]$l.IconLocation
             $newIcon = if (-not $icon -or $icon.StartsWith(',')) { "$($tg.Exe),0" } else { $icon }   # keep an icon
