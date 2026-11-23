@@ -116,6 +116,13 @@ function Test-ConsoleProgram([string]$Path) {
     return $false
 }
 
+# Is this entry worth offering?  Counts the ones that already run through ptyw (reported at the end).
+function Test-Wanted($Tg) {
+    if (-not $Tg) { return $false }
+    if (Test-IsWrapper $Tg.Exe) { $script:AlreadyWrapped++; return $false }
+    return (Test-ConsoleProgram $Tg.Exe)
+}
+
 # ptyw.exe itself, or one of its <prog>w.exe copies/links
 function Test-IsWrapper([string]$Path) {
     $name = [IO.Path]::GetFileName($Path).ToLower()
@@ -357,7 +364,7 @@ function Get-TaskCandidates {
             $file = Resolve-Exe $a.Execute $a.WorkingDirectory
             if (-not $file) { continue }
             $tg = Get-LaunchTarget $file ([string]$a.Arguments) ([string]$a.Execute)
-            if (-not $tg -or (Test-IsWrapper $tg.Exe) -or -not (Test-ConsoleProgram $tg.Exe)) { continue }
+            if (-not (Test-Wanted $tg)) { continue }
             $before = @{ TaskPath = $t.TaskPath; TaskName = $t.TaskName; Index = $i; Execute = $a.Execute
                          Arguments = [string]$a.Arguments; WorkingDirectory = [string]$a.WorkingDirectory }
             $w = Get-WrapForm $tg; $tg.WrapNote = $w.Note
@@ -393,7 +400,7 @@ function Get-RunCandidates {
                 $file = Resolve-Exe $sp.Exe $null
                 if (-not $file) { continue }
                 $tg = Get-LaunchTarget $file $sp.Arguments $sp.Exe
-                if (-not $tg -or (Test-IsWrapper $tg.Exe) -or -not (Test-ConsoleProgram $tg.Exe)) { continue }
+                if (-not (Test-Wanted $tg)) { continue }
                 $w = Get-WrapForm $tg; $tg.WrapNote = $w.Note
                 $newVal = (Join-Args $w.Exe $w.Arguments)
                 $before = @{ Hive = $loc.Hive; Sub = $loc.Sub; Name = $n; Value = $raw; Kind = $kind }
@@ -416,7 +423,7 @@ function Get-ShortcutCandidates {
             $target = Resolve-Exe $l.TargetPath $l.WorkingDirectory
             if (-not $target) { continue }
             $tg = Get-LaunchTarget $target ([string]$l.Arguments) ([string]$l.TargetPath)
-            if (-not $tg -or (Test-IsWrapper $tg.Exe) -or -not (Test-ConsoleProgram $tg.Exe)) { continue }
+            if (-not (Test-Wanted $tg)) { continue }
             $icon = [string]$l.IconLocation
             $newIcon = if (-not $icon -or $icon.StartsWith(',')) { "$($tg.Exe),0" } else { $icon }   # keep an icon
             $before = @{ Link = $file.FullName; Target = $l.TargetPath; Arguments = [string]$l.Arguments
@@ -491,9 +498,16 @@ function Invoke-Main {
     $script:Ptyw = (Resolve-Path -LiteralPath $p).ProviderPath
     Write-Host "Wrapper: $script:Ptyw    (admin: $(Test-Admin))"
 
+    $script:AlreadyWrapped = 0
     $cands = @(Get-TaskCandidates) + @(Get-RunCandidates) + @(Get-ShortcutCandidates)
-    if (-not $cands.Count) { Write-Host 'Nothing to update: no console-subsystem startup entries or scheduled tasks found.'; return }
-    Write-Host "$($cands.Count) candidate(s): console programs that would show a window."
+    $wrapped = $script:AlreadyWrapped
+    $wrappedText = if ($wrapped -eq 1) { '1 entry already uses ptyw' } else { "$wrapped entries already use ptyw" }
+    if (-not $cands.Count) {
+        if ($wrapped) { Write-Host "Nothing to update: $wrappedText; no other console-subsystem startup entries or scheduled tasks found." }
+        else          { Write-Host 'Nothing to update: no console-subsystem startup entries or scheduled tasks found.' }
+        return
+    }
+    Write-Host "$($cands.Count) candidate(s): console programs that would show a window.$(if ($wrapped) { " ($wrappedText.)" })"
 
     $allMode = $null; $n = 0; $done = 0          # $allMode: $null, 'ptyw' or 'gui'
     foreach ($c in $cands) {
