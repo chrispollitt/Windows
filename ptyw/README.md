@@ -41,3 +41,19 @@ Installs `ptyw.exe` plus `bashw sh zsh cmd powershell pwsh php perl ruby node lu
 aliases (`bashw.exe`, `cmdw.exe`, …) as hard links to it (a junction can only target a
 directory; symlinks need elevation; copies are the fallback across volumes). No `pythonw`
 alias: that already exists.
+
+## Moving existing startup entries and scheduled tasks to ptyw
+
+`ptyw-update-startup.ps1` finds the console programs among your scheduled tasks, Run keys
+(HKCU/HKLM) and Startup-folder shortcuts, and interactively offers to rewrite each one as
+`ptyw.exe "full\path\prog.exe" args`. Already-wrapped and GUI programs are skipped; every
+change is logged to `BAK\ptyw-update-<stamp>.json` (newest 4 kept) for `-Undo`.
+
+    powershell.exe -ExecutionPolicy Bypass -File ptyw-update-startup.ps1 -List     # just look
+    powershell.exe -ExecutionPolicy Bypass -File ptyw-update-startup.ps1           # ask, then change
+    powershell.exe -ExecutionPolicy Bypass -File ptyw-update-startup.ps1 -Undo BAK\ptyw-update-STAMP.json
+
+Other switches: `-DryRun`, `-IncludeMicrosoft` (also \Microsoft\* tasks), `-PtywPath`.
+Tasks that run as SYSTEM or another user need an elevated shell and a system-wide ptyw.exe
+(`make install DEST=/cygdrive/c/Windows`, then `-PtywPath C:\Windows\ptyw.exe`); tasks with a
+stored password are skipped.
