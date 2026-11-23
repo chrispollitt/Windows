@@ -48,11 +48,11 @@ alias: that already exists.
 `ptyw-update-startup.ps1` finds the console programs among your scheduled tasks, Run keys
 (HKCU/HKLM) and Startup-folder shortcuts, and interactively offers to rewrite each one as
 the *installed* wrapper (`%WINDIR%\ptyw.exe`, else the per-user WindowsApps copy, else PATH;
-never the build next to the script). Where the installed alias exists and running `<prog>` by
-name would find the very same program, the alias is used (`cmd.exe /c x` → `cmdw.exe /c x`);
-otherwise the entry becomes `ptyw.exe "full\path\prog.exe" args`, with a note saying why. (E.g.
-Cygwin's `bash.exe` is *not* turned into `bashw.exe`, because a bare `bash` resolves to the WSL
-`System32\bash.exe` first.) Already-wrapped and GUI programs are skipped; every change is logged
+never the build next to the script). An entry that spells out a full path keeps exactly that
+program: it becomes `ptyw.exe "D:\cygwin\bin\bash.exe" args`. Only an entry that names the
+program bare (`cmd`, `powershell.exe`) gets the installed alias (`cmdw.exe /c x`), and then only
+if running `<prog>` by name would find the very same program (a bare `bash` resolves to the WSL
+`System32\bash.exe` first, so it falls back to the `ptyw.exe "<path>"` form, with a note why). Already-wrapped and GUI programs are skipped; every change is logged
 to `BAK\ptyw-update-<stamp>.json` (newest 4 kept) for `-Undo`.
 
     powershell.exe -ExecutionPolicy Bypass -File ptyw-update-startup.ps1 -List     # just look
